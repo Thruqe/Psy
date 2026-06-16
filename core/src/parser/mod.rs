@@ -1,7 +1,7 @@
 pub mod ast;
 
 use self::ast::{Expression, Operator, OutputValue, Statement, UnaryOperator};
-use crate::lexer::token::Token;
+use crate::lexer::Token; 
 
 pub struct Parser {
     tokens: Vec<Token>,

@@ -34,7 +34,7 @@ fn main() {
     println!("=== Running: {} ===", filename);
     println!();
 
-    let mut lexer = Lexer::new(&source);
+    let mut lexer = Lexer::new(source.clone());
     let tokens = lexer.tokenize();
 
     if debug_mode {

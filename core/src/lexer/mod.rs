@@ -1,279 +1,235 @@
-pub mod token;
-
-use self::token::Token;
+mod token;
+pub use token::Token;
 
 pub struct Lexer {
-    input: Vec<char>,
     position: usize,
-    line: usize,
-    col: usize,
+    chars: Vec<char>,
 }
 
 impl Lexer {
-    pub fn new(input: &str) -> Self {
-        Lexer {
-            input: input.chars().collect(),
-            position: 0,
-            line: 1,
-            col: 1,
-        }
+    pub fn new(input: String) -> Self {
+        let chars: Vec<char> = input.chars().collect();
+        Lexer { position: 0, chars }
     }
 
     pub fn tokenize(&mut self) -> Vec<Token> {
         let mut tokens = Vec::new();
 
-        loop {
-            let token = self.next_token();
-            tokens.push(token.clone());
-            if token == Token::EOF {
-                break;
+        while self.position < self.chars.len() {
+            let ch = self.chars[self.position];
+
+            // Skip whitespace except newlines
+            if ch.is_whitespace() && ch != '\n' {
+                self.position += 1;
+                continue;
+            }
+
+            // Handle newlines
+            if ch == '\n' {
+                tokens.push(Token::Newline);
+                self.position += 1;
+                continue;
+            }
+
+            // Single-line comments: //
+            if ch == '/' && self.peek() == Some('/') {
+                // Skip the rest of the line
+                while self.position < self.chars.len() && self.chars[self.position] != '\n' {
+                    self.position += 1;
+                }
+                // The newline will be added in the next iteration
+                continue;
+            }
+
+            // Multi-line comments: /* */
+            if ch == '/' && self.peek() == Some('*') {
+                self.position += 2; // Skip /*
+                while self.position < self.chars.len() {
+                    if self.chars[self.position] == '*' && self.peek() == Some('/') {
+                        self.position += 2; // Skip */
+                        break;
+                    }
+                    self.position += 1;
+                }
+                continue;
+            }
+
+            // String literals
+            if ch == '"' {
+                let mut string = String::new();
+                self.position += 1; // Skip opening quote
+
+                while self.position < self.chars.len() && self.chars[self.position] != '"' {
+                    string.push(self.chars[self.position]);
+                    self.position += 1;
+                }
+
+                if self.position < self.chars.len() {
+                    self.position += 1; // Skip closing quote
+                }
+
+                tokens.push(Token::StringLiteral(string));
+                continue;
+            }
+
+            // Numbers
+            if ch.is_ascii_digit()
+                || (ch == '.' && self.peek().map_or(false, |c| c.is_ascii_digit()))
+            {
+                let mut number = String::new();
+                let mut has_decimal = false;
+
+                while self.position < self.chars.len() {
+                    let c = self.chars[self.position];
+                    if c == '.' && !has_decimal {
+                        number.push(c);
+                        has_decimal = true;
+                        self.position += 1;
+                    } else if c.is_ascii_digit() {
+                        number.push(c);
+                        self.position += 1;
+                    } else {
+                        break;
+                    }
+                }
+
+                if let Ok(num) = number.parse::<f64>() {
+                    tokens.push(Token::Number(num));
+                }
+                continue;
+            }
+
+            // Identifiers and keywords
+            if ch.is_alphabetic() || ch == '_' {
+                let mut ident = String::new();
+
+                while self.position < self.chars.len() {
+                    let c = self.chars[self.position];
+                    if c.is_alphanumeric() || c == '_' {
+                        ident.push(c);
+                        self.position += 1;
+                    } else {
+                        break;
+                    }
+                }
+
+                let token = match ident.as_str() {
+                    "START" => Token::Start,
+                    "END" => Token::End,
+                    "INPUT" => Token::Input,
+                    "OUTPUT" => Token::Output,
+                    "IF" => Token::If,
+                    "THEN" => Token::Then,
+                    "ELSE" => Token::Else,
+                    "ELSEIF" => Token::ElseIf,
+                    "ENDIF" => Token::EndIf,
+                    "FOR" => Token::For,
+                    "TO" => Token::To,
+                    "ENDFOR" => Token::EndFor,
+                    "WHILE" => Token::While,
+                    "ENDWHILE" => Token::EndWhile,
+                    "DECLARE" => Token::Declare,
+                    "AND" => Token::And,
+                    "OR" => Token::Or,
+                    "NOT" => Token::Not,
+                    "TRUE" => Token::Boolean(true),
+                    "FALSE" => Token::Boolean(false),
+                    _ => Token::Identifier(ident),
+                };
+                tokens.push(token);
+                continue;
+            }
+
+            // Operators and punctuation
+            match ch {
+                '+' => {
+                    tokens.push(Token::Plus);
+                    self.position += 1;
+                }
+                '-' => {
+                    tokens.push(Token::Minus);
+                    self.position += 1;
+                }
+                '*' => {
+                    tokens.push(Token::Star);
+                    self.position += 1;
+                }
+                '/' => {
+                    tokens.push(Token::Slash);
+                    self.position += 1;
+                }
+                '%' => {
+                    tokens.push(Token::Percent);
+                    self.position += 1;
+                }
+                '^' => {
+                    tokens.push(Token::Caret);
+                    self.position += 1;
+                }
+                '=' => {
+                    if self.peek() == Some('=') {
+                        tokens.push(Token::Eq);
+                        self.position += 2;
+                    } else {
+                        tokens.push(Token::Assign);
+                        self.position += 1;
+                    }
+                }
+                '<' => {
+                    if self.peek() == Some('=') {
+                        tokens.push(Token::LessEqual);
+                        self.position += 2;
+                    } else {
+                        tokens.push(Token::LessThan);
+                        self.position += 1;
+                    }
+                }
+                '>' => {
+                    if self.peek() == Some('=') {
+                        tokens.push(Token::GreaterEqual);
+                        self.position += 2;
+                    } else {
+                        tokens.push(Token::GreaterThan);
+                        self.position += 1;
+                    }
+                }
+                '!' => {
+                    if self.peek() == Some('=') {
+                        tokens.push(Token::NotEqual);
+                        self.position += 2;
+                    } else {
+                        tokens.push(Token::Not);
+                        self.position += 1;
+                    }
+                }
+                '[' => {
+                    tokens.push(Token::LeftBracket);
+                    self.position += 1;
+                }
+                ']' => {
+                    tokens.push(Token::RightBracket);
+                    self.position += 1;
+                }
+                ',' => {
+                    tokens.push(Token::Comma);
+                    self.position += 1;
+                }
+                _ => {
+                    // Unknown character - skip it
+                    self.position += 1;
+                }
             }
         }
 
+        tokens.push(Token::EOF);
         tokens
     }
 
-    pub fn next_token(&mut self) -> Token {
-        self.skip_whitespace();
-
-        if self.position >= self.input.len() {
-            return Token::EOF;
-        }
-
-        let ch = self.input[self.position];
-
-        match ch {
-            '+' => {
-                self.position += 1;
-                self.col += 1;
-                Token::Plus
-            }
-            '-' => {
-                self.position += 1;
-                self.col += 1;
-                Token::Minus
-            }
-            '*' => {
-                self.position += 1;
-                self.col += 1;
-                Token::Star
-            }
-            '/' => {
-                self.position += 1;
-                self.col += 1;
-                Token::Slash
-            }
-            '%' => {
-                self.position += 1;
-                self.col += 1;
-                Token::Percent
-            }
-            '^' => {
-                self.position += 1;
-                self.col += 1;
-                Token::Caret
-            }
-            '=' => {
-                self.position += 1;
-                self.col += 1;
-                if self.peek() == '=' {
-                    self.position += 1;
-                    self.col += 1;
-                    Token::Eq
-                } else {
-                    Token::Assign
-                }
-            }
-            '!' => {
-                self.position += 1;
-                self.col += 1;
-                if self.peek() == '=' {
-                    self.position += 1;
-                    self.col += 1;
-                    Token::NotEqual
-                } else {
-                    self.next_token()
-                }
-            }
-            '>' => {
-                self.position += 1;
-                self.col += 1;
-                if self.peek() == '=' {
-                    self.position += 1;
-                    self.col += 1;
-                    Token::GreaterEqual
-                } else {
-                    Token::GreaterThan
-                }
-            }
-            '<' => {
-                self.position += 1;
-                self.col += 1;
-                if self.peek() == '=' {
-                    self.position += 1;
-                    self.col += 1;
-                    Token::LessEqual
-                } else {
-                    Token::LessThan
-                }
-            }
-            '[' => {
-                self.position += 1;
-                self.col += 1;
-                Token::LeftBracket
-            }
-            ']' => {
-                self.position += 1;
-                self.col += 1;
-                Token::RightBracket
-            }
-            ',' => {
-                self.position += 1;
-                self.col += 1;
-                Token::Comma
-            }
-            '"' => self.read_string(),
-            '0'..='9' => self.read_number(),
-            'a'..='z' | 'A'..='Z' | '_' => {
-                let token = self.read_identifier();
-                if token == Token::Else && self.try_consume_if_after_else() {
-                    Token::ElseIf
-                } else {
-                    token
-                }
-            }
-            '\n' => {
-                self.position += 1;
-                self.line += 1;
-                self.col = 1;
-                Token::Newline
-            }
-            _ => {
-                self.position += 1;
-                self.col += 1;
-                self.next_token()
-            }
-        }
-    }
-
-    fn read_string(&mut self) -> Token {
-        self.position += 1;
-        self.col += 1;
-        let start = self.position;
-
-        while self.position < self.input.len() && self.input[self.position] != '"' {
-            self.position += 1;
-        }
-
-        let value: String = self.input[start..self.position].iter().collect();
-        self.position += 1;
-        self.col += value.len() as usize + 2;
-        Token::StringLiteral(value)
-    }
-
-    fn read_number(&mut self) -> Token {
-        let start = self.position;
-
-        while self.position < self.input.len()
-            && (self.input[self.position].is_ascii_digit() || self.input[self.position] == '.')
-        {
-            self.position += 1;
-        }
-
-        let value: String = self.input[start..self.position].iter().collect();
-        self.col += value.len();
-        let num = value.parse().unwrap_or(0.0);
-        Token::Number(num)
-    }
-
-    fn read_identifier(&mut self) -> Token {
-        let start = self.position;
-
-        while self.position < self.input.len()
-            && (self.input[self.position].is_ascii_alphanumeric()
-                || self.input[self.position] == '_')
-        {
-            self.position += 1;
-        }
-
-        let value: String = self.input[start..self.position].iter().collect();
-        self.col += value.len();
-
-        match value.as_str() {
-            "START" => Token::Start,
-            "END" => Token::End,
-            "INPUT" => Token::Input,
-            "OUTPUT" => Token::Output,
-            "IF" => Token::If,
-            "THEN" => Token::Then,
-            "ELSE" => Token::Else,
-            "ELSEIF" => Token::ElseIf,
-            "ENDIF" => Token::EndIf,
-            "FOR" => Token::For,
-            "TO" => Token::To,
-            "ENDFOR" => Token::EndFor,
-            "WHILE" => Token::While,
-            "ENDWHILE" => Token::EndWhile,
-            "DECLARE" => Token::Declare,
-            "AND" => Token::And,
-            "OR" => Token::Or,
-            "NOT" => Token::Not,
-            "True" => Token::Boolean(true),
-            "False" => Token::Boolean(false),
-            _ => Token::Identifier(value),
-        }
-    }
-
-    /// Called right after lexing the word "ELSE". If, skipping only inline
-    /// whitespace (not newlines), the next word is "IF" as a standalone token
-    /// (not e.g. "IFX"), consume it and report success so the caller can
-    /// fold ELSE + IF into a single ElseIf token. Otherwise roll back.
-    fn try_consume_if_after_else(&mut self) -> bool {
-        let saved_position = self.position;
-        let saved_col = self.col;
-
-        while self.position < self.input.len()
-            && (self.input[self.position] == ' ' || self.input[self.position] == '\t')
-        {
-            self.position += 1;
-            self.col += 1;
-        }
-
-        if self.position + 1 < self.input.len()
-            && self.input[self.position] == 'I'
-            && self.input[self.position + 1] == 'F'
-        {
-            let after = self.position + 2;
-            let boundary_ok = after >= self.input.len()
-                || !(self.input[after].is_ascii_alphanumeric() || self.input[after] == '_');
-
-            if boundary_ok {
-                self.position += 2;
-                self.col += 2;
-                return true;
-            }
-        }
-
-        self.position = saved_position;
-        self.col = saved_col;
-        false
-    }
-
-    fn skip_whitespace(&mut self) {
-        while self.position < self.input.len()
-            && self.input[self.position].is_whitespace()
-            && self.input[self.position] != '\n'
-        {
-            self.position += 1;
-            self.col += 1;
-        }
-    }
-
-    fn peek(&self) -> char {
-        if self.position < self.input.len() {
-            self.input[self.position]
+    fn peek(&self) -> Option<char> {
+        if self.position + 1 < self.chars.len() {
+            Some(self.chars[self.position + 1])
         } else {
-            '\0'
+            None
         }
     }
 }
