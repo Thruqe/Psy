@@ -3,5 +3,19 @@
 version = 4
 
 [[package]]
+name = "pseudocode-cli"
+version = "0.1.0"
+dependencies = [
+ "pseudocode-core",
+]
+
+[[package]]
+name = "pseudocode-core"
+version = "0.1.0"
+
+[[package]]
 name = "pseudocode-interpreter"
 version = "0.1.0"
+dependencies = [
+ "pseudocode-core",
+]
