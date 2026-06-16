@@ -1,19 +1,56 @@
 use crate::interpreter::environment::{Environment, Value};
 use crate::parser::ast::{Expression, Operator, OutputValue, Statement, UnaryOperator};
+use std::collections::HashMap;
 use std::io::{self, Write};
+
+#[derive(Debug, Clone)]
+struct FunctionDef {
+    parameters: Vec<String>,
+    body: Vec<Statement>,
+}
+
+/// Signals whether a block finished normally or hit a RETURN that needs
+/// to propagate up through any number of enclosing IF/FOR/WHILE blocks
+/// to the function call site.
+enum ControlFlow {
+    Normal,
+    Return(Value),
+}
 
 pub struct Interpreter {
     environment: Environment,
+    functions: HashMap<String, FunctionDef>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Interpreter {
             environment: Environment::new(),
+            functions: HashMap::new(),
         }
     }
 
     pub fn run(&mut self, statements: &[Statement]) -> Result<(), String> {
+        // Pre-pass: register every function declaration before executing
+        // anything, so forward references and recursion both work
+        // regardless of declaration order.
+        for stmt in statements {
+            if let Statement::FunctionDeclaration {
+                name,
+                parameters,
+                body,
+            } = stmt
+            {
+                self.functions.insert(
+                    name.clone(),
+                    FunctionDef {
+                        parameters: parameters.clone(),
+                        body: body.clone(),
+                    },
+                );
+            }
+        }
+
         for stmt in statements {
             self.execute_statement(stmt)?;
         }
@@ -24,7 +61,7 @@ impl Interpreter {
         self.environment.print_state();
     }
 
-    fn execute_statement(&mut self, stmt: &Statement) -> Result<(), String> {
+    fn execute_statement(&mut self, stmt: &Statement) -> Result<ControlFlow, String> {
         match stmt {
             Statement::Assign {
                 variable,
@@ -32,6 +69,7 @@ impl Interpreter {
             } => {
                 let value = self.evaluate_expression(expression)?;
                 self.environment.set(variable, value);
+                Ok(ControlFlow::Normal)
             }
             Statement::Input { variables } => {
                 for var in variables {
@@ -42,13 +80,13 @@ impl Interpreter {
                     io::stdin().read_line(&mut input).unwrap();
                     let input = input.trim();
 
-                    // Try to parse as number first
                     if let Ok(num) = input.parse::<f64>() {
                         self.environment.set(var, Value::Number(num));
                     } else {
                         self.environment.set(var, Value::String(input.to_string()));
                     }
                 }
+                Ok(ControlFlow::Normal)
             }
             Statement::Output { values } => {
                 for value in values {
@@ -63,6 +101,7 @@ impl Interpreter {
                     }
                 }
                 println!();
+                Ok(ControlFlow::Normal)
             }
             Statement::If {
                 condition,
@@ -74,25 +113,19 @@ impl Interpreter {
                 let is_true = self.is_truthy(&cond);
 
                 if is_true {
-                    for stmt in then_branch {
-                        self.execute_statement(stmt)?;
-                    }
+                    self.execute_block(then_branch)
                 } else {
-                    let mut executed = false;
+                    let mut result = None;
                     for (elseif_cond, elseif_body) in else_if_branches {
                         let elseif_cond_value = self.evaluate_expression(elseif_cond)?;
                         if self.is_truthy(&elseif_cond_value) {
-                            for stmt in elseif_body {
-                                self.execute_statement(stmt)?;
-                            }
-                            executed = true;
+                            result = Some(self.execute_block(elseif_body)?);
                             break;
                         }
                     }
-                    if !executed {
-                        for stmt in else_branch {
-                            self.execute_statement(stmt)?;
-                        }
+                    match result {
+                        Some(cf) => Ok(cf),
+                        None => self.execute_block(else_branch),
                     }
                 }
             }
@@ -111,12 +144,14 @@ impl Interpreter {
 
                     for i in start_int..=end_int {
                         self.environment.set(variable, Value::Number(i as f64));
-                        for stmt in body {
-                            self.execute_statement(stmt)?;
+                        match self.execute_block(body)? {
+                            ControlFlow::Normal => {}
+                            ControlFlow::Return(v) => return Ok(ControlFlow::Return(v)),
                         }
                     }
+                    Ok(ControlFlow::Normal)
                 } else {
-                    return Err("FOR loop bounds must be numbers".to_string());
+                    Err("FOR loop bounds must be numbers".to_string())
                 }
             }
             Statement::WhileLoop { condition, body } => {
@@ -124,15 +159,18 @@ impl Interpreter {
                 let mut is_true = self.is_truthy(&cond);
 
                 while is_true {
-                    for stmt in body {
-                        self.execute_statement(stmt)?;
+                    match self.execute_block(body)? {
+                        ControlFlow::Normal => {}
+                        ControlFlow::Return(v) => return Ok(ControlFlow::Return(v)),
                     }
                     cond = self.evaluate_expression(condition)?;
                     is_true = self.is_truthy(&cond);
                 }
+                Ok(ControlFlow::Normal)
             }
             Statement::DeclareArray { name, size } => {
                 self.environment.declare_array(name, *size);
+                Ok(ControlFlow::Normal)
             }
             Statement::ArrayAssign { name, index, value } => {
                 let idx_val = self.evaluate_expression(index)?;
@@ -140,12 +178,80 @@ impl Interpreter {
 
                 if let Value::Number(idx) = idx_val {
                     self.environment.set_array_element(name, idx as usize, val);
+                    Ok(ControlFlow::Normal)
                 } else {
-                    return Err("Array index must be a number".to_string());
+                    Err("Array index must be a number".to_string())
                 }
             }
+            Statement::FunctionDeclaration { .. } => {
+                // Already registered in the pre-pass; nothing to do at
+                // execution time when encountered inline.
+                Ok(ControlFlow::Normal)
+            }
+            Statement::Return { value } => {
+                let val = match value {
+                    Some(expr) => self.evaluate_expression(expr)?,
+                    None => Value::Undefined,
+                };
+                Ok(ControlFlow::Return(val))
+            }
         }
-        Ok(())
+    }
+
+    /// Executes a block of statements, stopping early and propagating a
+    /// RETURN the moment one is hit, rather than running the rest of the block.
+    fn execute_block(&mut self, statements: &[Statement]) -> Result<ControlFlow, String> {
+        for stmt in statements {
+            match self.execute_statement(stmt)? {
+                ControlFlow::Normal => {}
+                ControlFlow::Return(v) => return Ok(ControlFlow::Return(v)),
+            }
+        }
+        Ok(ControlFlow::Normal)
+    }
+
+    fn call_function(&mut self, name: &str, arguments: &[Expression]) -> Result<Value, String> {
+        let func = self
+            .functions
+            .get(name)
+            .cloned()
+            .ok_or_else(|| format!("Undefined function: {}", name))?;
+
+        if arguments.len() != func.parameters.len() {
+            return Err(format!(
+                "Function {} expects {} argument(s), got {}",
+                name,
+                func.parameters.len(),
+                arguments.len()
+            ));
+        }
+
+        // Evaluate arguments in the *caller's* environment before swapping,
+        // since they may reference the caller's variables.
+        let mut arg_values = Vec::with_capacity(arguments.len());
+        for arg in arguments {
+            arg_values.push(self.evaluate_expression(arg)?);
+        }
+
+        // Build a fresh, isolated environment for the call: only the
+        // parameters are visible, nothing from the caller's scope leaks in.
+        let mut call_env = Environment::new();
+        for (param, value) in func.parameters.iter().zip(arg_values.into_iter()) {
+            call_env.set(param, value);
+        }
+
+        // Swap in the call's environment, run the body, then restore the
+        // caller's environment regardless of how the call finishes.
+        let caller_env = std::mem::replace(&mut self.environment, call_env);
+
+        let result = self.execute_block(&func.body);
+
+        self.environment = caller_env;
+
+        match result? {
+            ControlFlow::Return(v) => Ok(v),
+            ControlFlow::Normal => Ok(Value::Undefined),
+        }
     }
 
     fn evaluate_expression(&mut self, expr: &Expression) -> Result<Value, String> {
@@ -162,6 +268,7 @@ impl Interpreter {
                     Err("Array index must be a number".to_string())
                 }
             }
+            Expression::FunctionCall { name, arguments } => self.call_function(name, arguments),
             Expression::BinaryOp {
                 left,
                 operator,

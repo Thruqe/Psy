@@ -35,6 +35,14 @@ pub enum Statement {
         index: Box<Expression>,
         value: Box<Expression>,
     },
+    FunctionDeclaration {
+        name: String,
+        parameters: Vec<String>,
+        body: Vec<Statement>,
+    },
+    Return {
+        value: Option<Expression>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -55,6 +63,10 @@ pub enum Expression {
     UnaryOp {
         operator: UnaryOperator,
         expr: Box<Expression>,
+    },
+    FunctionCall {
+        name: String,
+        arguments: Vec<Expression>,
     },
 }
 

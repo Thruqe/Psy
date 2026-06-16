@@ -25,6 +25,9 @@ pub enum Token {
     While,
     EndWhile,
     Declare,
+    Function,
+    EndFunction,
+    Return,
 
     // Operators
     Plus,
@@ -44,6 +47,10 @@ pub enum Token {
     // Array brackets
     LeftBracket,
     RightBracket,
+
+    //
+    LeftParen,
+    RightParen,
 
     // Punctuation
     Comma,
@@ -82,6 +89,9 @@ impl fmt::Display for Token {
             Token::While => write!(f, "WHILE"),
             Token::EndWhile => write!(f, "ENDWHILE"),
             Token::Declare => write!(f, "DECLARE"),
+            Token::Function => write!(f, "FUNCTION"),
+            Token::EndFunction => write!(f, "ENDFUNCTION"),
+            Token::Return => write!(f, "RETURN"),
             Token::Plus => write!(f, "+"),
             Token::Minus => write!(f, "-"),
             Token::Star => write!(f, "*"),
@@ -107,6 +117,8 @@ impl fmt::Display for Token {
             Token::Boolean(b) => write!(f, "{}", b),
             Token::Newline => write!(f, "\\n"),
             Token::EOF => write!(f, "EOF"),
+            Token::LeftParen => write!(f, "("),
+            Token::RightParen => write!(f, ")"),
         }
     }
 }

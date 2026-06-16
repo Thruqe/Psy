@@ -157,6 +157,9 @@ impl Lexer {
                     "NOT" => Token::Not,
                     "TRUE" => Token::Boolean(true),
                     "FALSE" => Token::Boolean(false),
+                    "FUNCTION" => Token::Function,
+                    "ENDFUNCTION" => Token::EndFunction,
+                    "RETURN" => Token::Return,
                     _ => Token::Identifier(ident),
                 };
                 tokens.push(PositionedToken {
@@ -310,6 +313,22 @@ impl Lexer {
                     self.advance_char();
                     tokens.push(PositionedToken {
                         token: Token::Comma,
+                        line,
+                        column,
+                    });
+                }
+                '(' => {
+                    self.advance_char();
+                    tokens.push(PositionedToken {
+                        token: Token::LeftParen,
+                        line,
+                        column,
+                    });
+                }
+                ')' => {
+                    self.advance_char();
+                    tokens.push(PositionedToken {
+                        token: Token::RightParen,
                         line,
                         column,
                     });

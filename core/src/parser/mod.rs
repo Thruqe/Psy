@@ -122,6 +122,10 @@ impl Parser {
             self.parse_assign()
         } else if self.peek_is_array_access() {
             self.parse_array_assign()
+        } else if self.check(Token::Function) {
+            self.parse_function_declaration()
+        } else if self.check(Token::Return) {
+            self.parse_return()
         } else {
             let token = self.current();
             let err = self.error_at_current(&format!(
@@ -393,6 +397,64 @@ impl Parser {
         self.parse_or()
     }
 
+    fn parse_function_declaration(&mut self) -> Result<Statement, ParseError> {
+        self.advance(); // Consume FUNCTION
+
+        let name = if let Token::Identifier(name) = self.current() {
+            name.clone()
+        } else {
+            return Err(self.error_at_current("Expected function name after FUNCTION"));
+        };
+        self.advance();
+
+        if !self.check(Token::LeftParen) {
+            return Err(self.error_at_current("Expected ( after function name"));
+        }
+        self.advance();
+
+        let mut parameters = Vec::new();
+        while !self.check(Token::RightParen) {
+            if let Token::Identifier(param) = self.current() {
+                parameters.push(param.clone());
+                self.advance();
+                if self.check(Token::Comma) {
+                    self.advance();
+                }
+            } else {
+                return Err(self.error_at_current("Expected parameter name"));
+            }
+        }
+        self.advance(); // Consume )
+        self.skip_newlines();
+
+        let body = self.parse_block_statements(&[Token::EndFunction]);
+
+        if !self.check(Token::EndFunction) {
+            return Err(self.error_at_current("Expected ENDFUNCTION"));
+        }
+        self.advance();
+        self.skip_newlines();
+
+        Ok(Statement::FunctionDeclaration {
+            name,
+            parameters,
+            body,
+        })
+    }
+
+    fn parse_return(&mut self) -> Result<Statement, ParseError> {
+        self.advance(); // Consume RETURN
+
+        if self.is_at_end() || self.check(Token::Newline) {
+            self.skip_newlines();
+            return Ok(Statement::Return { value: None });
+        }
+
+        let expr = self.parse_expression()?;
+        self.skip_newlines();
+        Ok(Statement::Return { value: Some(expr) })
+    }
+
     fn parse_or(&mut self) -> Result<Expression, ParseError> {
         let mut left = self.parse_and()?;
 
@@ -575,6 +637,20 @@ impl Parser {
                     Ok(Expression::ArrayAccess {
                         name: name.clone(),
                         index: Box::new(index),
+                    })
+                } else if self.check(Token::LeftParen) {
+                    self.advance();
+                    let mut arguments = Vec::new();
+                    while !self.check(Token::RightParen) {
+                        arguments.push(self.parse_expression()?);
+                        if self.check(Token::Comma) {
+                            self.advance();
+                        }
+                    }
+                    self.advance(); // Consume )
+                    Ok(Expression::FunctionCall {
+                        name: name.clone(),
+                        arguments,
                     })
                 } else {
                     Ok(Expression::Identifier(name.clone()))

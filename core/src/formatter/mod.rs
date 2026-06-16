@@ -66,6 +66,33 @@ impl Formatter {
                 writeln!(self.output, "{}OUTPUT {}", indent, output_line)
                     .map_err(|e| e.to_string())?;
             }
+            Statement::FunctionDeclaration {
+                name,
+                parameters,
+                body,
+            } => {
+                let params = parameters.join(", ");
+                writeln!(self.output, "{}FUNCTION {}({})", indent, name, params)
+                    .map_err(|e| e.to_string())?;
+
+                self.indent_level += 1;
+                for stmt in body {
+                    self.format_statement(stmt)?;
+                }
+                self.indent_level -= 1;
+
+                writeln!(self.output, "{}ENDFUNCTION", indent).map_err(|e| e.to_string())?;
+            }
+            Statement::Return { value } => match value {
+                Some(expr) => {
+                    let expr_str = self.format_expression(expr)?;
+                    writeln!(self.output, "{}RETURN {}", indent, expr_str)
+                        .map_err(|e| e.to_string())?;
+                }
+                None => {
+                    writeln!(self.output, "{}RETURN", indent).map_err(|e| e.to_string())?;
+                }
+            },
             Statement::If {
                 condition,
                 then_branch,
@@ -173,6 +200,14 @@ impl Formatter {
             Expression::ArrayAccess { name, index } => {
                 let idx = self.format_expression(index)?;
                 Ok(format!("{}[{}]", name, idx))
+            }
+            Expression::FunctionCall { name, arguments } => {
+                let args: Result<Vec<String>, String> = arguments
+                    .iter()
+                    .map(|arg| self.format_expression(arg))
+                    .collect();
+                let args_str = args?.join(", ");
+                Ok(format!("{}({})", name, args_str))
             }
             Expression::BinaryOp {
                 left,
