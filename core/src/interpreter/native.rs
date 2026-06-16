@@ -28,6 +28,15 @@ fn math_module() -> NativeModule {
     functions.insert("ROUND", pseudocode_math::round);
     functions.insert("FLOOR", pseudocode_math::floor);
     functions.insert("CEIL", pseudocode_math::ceil);
+    functions.insert("MEAN", pseudocode_math::mean);
+    functions.insert("MEDIAN", pseudocode_math::median);
+    functions.insert("MODE", pseudocode_math::mode);
+    functions.insert("VARIANCE", pseudocode_math::variance);
+    functions.insert("STDDEV", pseudocode_math::stddev);
+    functions.insert("MIN", pseudocode_math::min);
+    functions.insert("MAX", pseudocode_math::max);
+    functions.insert("SUM", pseudocode_math::sum);
+    functions.insert("PRODUCT", pseudocode_math::product);
 
     let mut constants: std::collections::HashMap<&'static str, Value> =
         std::collections::HashMap::new();
