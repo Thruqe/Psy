@@ -1,0 +1,89 @@
+#[derive(Debug, Clone)]
+pub enum Statement {
+    Assign {
+        variable: String,
+        expression: Expression,
+    },
+    Input {
+        variables: Vec<String>,
+    },
+    Output {
+        values: Vec<OutputValue>,
+    },
+    If {
+        condition: Expression,
+        then_branch: Vec<Statement>,
+        else_if_branches: Vec<(Expression, Vec<Statement>)>,
+        else_branch: Vec<Statement>,
+    },
+    ForLoop {
+        variable: String,
+        start: Expression,
+        end: Expression,
+        body: Vec<Statement>,
+    },
+    WhileLoop {
+        condition: Expression,
+        body: Vec<Statement>,
+    },
+    DeclareArray {
+        name: String,
+        size: usize,
+    },
+    ArrayAssign {
+        name: String,
+        index: Box<Expression>,
+        value: Box<Expression>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Expression {
+    Number(f64),
+    String(String),
+    Boolean(bool),
+    Identifier(String),
+    ArrayAccess {
+        name: String,
+        index: Box<Expression>,
+    },
+    BinaryOp {
+        left: Box<Expression>,
+        operator: Operator,
+        right: Box<Expression>,
+    },
+    UnaryOp {
+        operator: UnaryOperator,
+        expr: Box<Expression>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Operator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo,
+    Power,
+    Equal,
+    NotEqual,
+    LessThan,
+    GreaterThan,
+    LessEqual,
+    GreaterEqual,
+    And,
+    Or,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum UnaryOperator {
+    Negate,
+    Not,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutputValue {
+    Expression(Expression),
+    StringLiteral(String),
+}

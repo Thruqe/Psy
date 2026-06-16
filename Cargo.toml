@@ -1,0 +1,23 @@
+[package]
+name = "pseudocode-interpreter"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+opt-level = 3
+overflow-checks = true
+debug = true
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+codegen-units = 256
+
+[profile.release.build-override]
+opt-level = 3
+codegen-units = 1
