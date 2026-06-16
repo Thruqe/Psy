@@ -19,6 +19,10 @@ dependencies = [
 [[package]]
 name = "pseudocode-core"
 version = "0.1.0"
+dependencies = [
+ "pseudocode-math",
+ "pseudocode-types",
+]
 
 [[package]]
 name = "pseudocode-lsp"
@@ -27,3 +31,14 @@ dependencies = [
  "pseudocode-checker",
  "pseudocode-core",
 ]
+
+[[package]]
+name = "pseudocode-math"
+version = "0.1.0"
+dependencies = [
+ "pseudocode-types",
+]
+
+[[package]]
+name = "pseudocode-types"
+version = "0.1.0"

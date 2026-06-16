@@ -38,6 +38,17 @@ impl Formatter {
         let indent = " ".repeat(self.indent_level * self.indent_size);
 
         match stmt {
+            Statement::Import { modules } => {
+                let parts: Vec<String> = modules
+                    .iter()
+                    .map(|m| match &m.functions {
+                        Some(funcs) => format!("{}[{}]", m.name, funcs.join(", ")),
+                        None => m.name.clone(),
+                    })
+                    .collect();
+                writeln!(self.output, "{}IMPORT {}", indent, parts.join(", "))
+                    .map_err(|e| e.to_string())?;
+            }
             Statement::Assign {
                 variable,
                 expression,

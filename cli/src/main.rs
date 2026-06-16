@@ -65,10 +65,12 @@ fn main() {
         }
         println!();
     }
-
     let mut parser = Parser::new(tokens);
-    let (ast, _errors) = parser.parse();
+    let (ast, parse_errors) = parser.parse();
 
+    for err in &parse_errors {
+        eprintln!("Parse error: {}", err);
+    }
     if debug_mode {
         println!("--- Abstract Syntax Tree ---");
         println!("{:#?}", ast);

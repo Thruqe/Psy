@@ -48,6 +48,8 @@ impl Parser {
     pub fn parse(&mut self) -> (Vec<Statement>, Vec<ParseError>) {
         self.skip_newlines();
 
+        let imports = self.parse_imports();
+
         if self.check(Token::Start) {
             self.advance();
             self.skip_newlines();
@@ -55,7 +57,8 @@ impl Parser {
             self.push_warning_at_current("Program should start with START");
         }
 
-        let statements = self.parse_block_statements(&[Token::End]);
+        let mut statements = imports;
+        statements.extend(self.parse_block_statements(&[Token::End]));
 
         if self.check(Token::End) {
             self.advance();
@@ -65,6 +68,73 @@ impl Parser {
 
         (statements, std::mem::take(&mut self.errors))
     }
+
+    /// Consumes zero or more IMPORT statements appearing before START.
+    /// Each IMPORT line becomes one Statement::Import.
+    fn parse_imports(&mut self) -> Vec<Statement> {
+        let mut imports = Vec::new();
+
+        while self.check(Token::Import) {
+            match self.parse_import() {
+                Ok(stmt) => imports.push(stmt),
+                Err(e) => {
+                    self.errors.push(e);
+                    self.recover_to_boundary(&[Token::Start]);
+                }
+            }
+            self.skip_newlines();
+        }
+
+        imports
+    }
+
+    fn parse_import(&mut self) -> Result<Statement, ParseError> {
+        self.advance(); // Consume IMPORT
+
+        let mut modules = Vec::new();
+        modules.push(self.parse_module_import()?);
+
+        while self.check(Token::Comma) {
+            self.advance();
+            modules.push(self.parse_module_import()?);
+        }
+
+        self.skip_newlines();
+        Ok(Statement::Import { modules })
+    }
+
+    fn parse_module_import(&mut self) -> Result<ast::ModuleImport, ParseError> {
+        let name = if let Token::Identifier(name) = self.current() {
+            name.clone()
+        } else {
+            return Err(self.error_at_current("Expected module name after IMPORT"));
+        };
+        self.advance();
+
+        let functions = if self.check(Token::LeftBracket) {
+            self.advance();
+            let mut names = Vec::new();
+
+            while !self.check(Token::RightBracket) {
+                if let Token::Identifier(func_name) = self.current() {
+                    names.push(func_name.clone());
+                    self.advance();
+                    if self.check(Token::Comma) {
+                        self.advance();
+                    }
+                } else {
+                    return Err(self.error_at_current("Expected function name in import list"));
+                }
+            }
+            self.advance(); // Consume ]
+            Some(names)
+        } else {
+            None
+        };
+
+        Ok(ast::ModuleImport { name, functions })
+    }
+
     fn parse_block_statements(&mut self, stop_tokens: &[Token]) -> Vec<Statement> {
         let mut statements = Vec::new();
 

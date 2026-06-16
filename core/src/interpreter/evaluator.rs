@@ -1,4 +1,5 @@
 use crate::interpreter::environment::{Environment, Value};
+use crate::interpreter::native::{self, get_module};
 use crate::parser::ast::{Expression, Operator, OutputValue, Statement, UnaryOperator};
 use std::collections::HashMap;
 use std::io::{self, Write};
@@ -20,6 +21,8 @@ enum ControlFlow {
 pub struct Interpreter {
     environment: Environment,
     functions: HashMap<String, FunctionDef>,
+    native_functions: HashMap<String, native::NativeFn>,
+    native_constants: HashMap<String, Value>,
 }
 
 impl Interpreter {
@@ -27,10 +30,39 @@ impl Interpreter {
         Interpreter {
             environment: Environment::new(),
             functions: HashMap::new(),
+            native_functions: HashMap::new(),
+            native_constants: HashMap::new(),
         }
     }
 
     pub fn run(&mut self, statements: &[Statement]) -> Result<(), String> {
+        // Process imports first
+        for stmt in statements {
+            if let Statement::Import { modules } = stmt {
+                for module_import in modules {
+                    if let Some(module) = get_module(&module_import.name) {
+                        // Register native functions
+                        for (name, func) in module.functions {
+                            self.native_functions.insert(name.to_string(), func);
+                        }
+                        // Register constants
+                        for (name, value) in module.constants {
+                            self.environment.set(&name, value);
+                        }
+
+                        // If specific functions are imported, filter them
+                        if let Some(imported_funcs) = &module_import.functions {
+                            // Keep only the functions that were explicitly imported
+                            self.native_functions
+                                .retain(|k, _| imported_funcs.contains(k));
+                        }
+                    } else {
+                        return Err(format!("Unknown module: {}", module_import.name));
+                    }
+                }
+            }
+        }
+
         // Pre-pass: register every function declaration before executing
         // anything, so forward references and recursion both work
         // regardless of declaration order.
@@ -63,6 +95,10 @@ impl Interpreter {
 
     fn execute_statement(&mut self, stmt: &Statement) -> Result<ControlFlow, String> {
         match stmt {
+            Statement::Import { .. } => {
+                // Already processed in the run() pre-pass
+                Ok(ControlFlow::Normal)
+            }
             Statement::Assign {
                 variable,
                 expression,
@@ -209,8 +245,18 @@ impl Interpreter {
         }
         Ok(ControlFlow::Normal)
     }
-
     fn call_function(&mut self, name: &str, arguments: &[Expression]) -> Result<Value, String> {
+        // Check if it's a native function first
+        if let Some(native_func) = self.native_functions.get(name).cloned() {
+            // Evaluate arguments in the caller's environment
+            let mut arg_values = Vec::with_capacity(arguments.len());
+            for arg in arguments {
+                arg_values.push(self.evaluate_expression(arg)?);
+            }
+            return native_func(&arg_values);
+        }
+
+        // Then check user-defined functions
         let func = self
             .functions
             .get(name)
@@ -259,7 +305,14 @@ impl Interpreter {
             Expression::Number(n) => Ok(Value::Number(*n)),
             Expression::String(s) => Ok(Value::String(s.clone())),
             Expression::Boolean(b) => Ok(Value::Boolean(*b)),
-            Expression::Identifier(name) => Ok(self.environment.get(name)),
+            Expression::Identifier(name) => {
+                // Check if it's a constant first
+                if let Some(value) = self.native_constants.get(name) {
+                    Ok(value.clone())
+                } else {
+                    Ok(self.environment.get(name))
+                }
+            }
             Expression::ArrayAccess { name, index } => {
                 let idx_val = self.evaluate_expression(index)?;
                 if let Value::Number(idx) = idx_val {
@@ -403,15 +456,38 @@ impl Interpreter {
     fn value_to_string(&self, value: &Value) -> String {
         match value {
             Value::Number(n) => {
-                if n.fract() == 0.0 {
-                    format!("{:.0}", n)
-                } else {
-                    n.to_string()
+                // Handle special cases
+                if n.is_nan() {
+                    return "NaN".to_string();
                 }
+                if n.is_infinite() {
+                    if n.is_sign_positive() {
+                        return "Infinity".to_string();
+                    } else {
+                        return "-Infinity".to_string();
+                    }
+                }
+
+                // Check if it's a whole number
+                if n.fract() == 0.0 {
+                    return format!("{:.0}", n);
+                }
+
+                // Use Rust's debug formatting which gives a good balance
+                // or use format with precision based on the value
+                let formatted = format!("{:.12}", n);
+
+                // Remove trailing zeros
+                let trimmed = formatted.trim_end_matches('0').trim_end_matches('.');
+
+                trimmed.to_string()
             }
             Value::String(s) => s.clone(),
             Value::Boolean(b) => b.to_string(),
-            Value::Array(arr) => format!("{:?}", arr),
+            Value::Array(arr) => {
+                let elements: Vec<String> = arr.iter().map(|v| self.value_to_string(v)).collect();
+                format!("[{}]", elements.join(", "))
+            }
             Value::Undefined => "undefined".to_string(),
         }
     }

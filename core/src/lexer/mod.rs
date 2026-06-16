@@ -160,6 +160,8 @@ impl Lexer {
                     "FUNCTION" => Token::Function,
                     "ENDFUNCTION" => Token::EndFunction,
                     "RETURN" => Token::Return,
+                    "IMPORT" => Token::Import,
+                    "PUB" => Token::Pub,
                     _ => Token::Identifier(ident),
                 };
                 tokens.push(PositionedToken {

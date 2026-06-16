@@ -1,0 +1,7 @@
+[package]
+name = "pseudocode-math"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+pseudocode-types = { path = "../../types" }

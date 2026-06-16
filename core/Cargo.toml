@@ -7,3 +7,5 @@ edition = "2024"
 path = "src/lib.rs"
 
 [dependencies]
+pseudocode-types = { path = "../types" }
+pseudocode-math = { path = "../modules/math" }

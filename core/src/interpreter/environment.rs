@@ -1,13 +1,6 @@
-use std::collections::HashMap;
+pub use pseudocode_types::Value;
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Value {
-    Number(f64),
-    String(String),
-    Boolean(bool),
-    Array(Vec<Value>),
-    Undefined,
-}
+use std::collections::HashMap;
 
 pub struct Environment {
     variables: HashMap<String, Value>,

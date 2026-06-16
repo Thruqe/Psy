@@ -28,6 +28,8 @@ pub enum Token {
     Function,
     EndFunction,
     Return,
+    Import,
+    Pub,
 
     // Operators
     Plus,
@@ -92,6 +94,8 @@ impl fmt::Display for Token {
             Token::Function => write!(f, "FUNCTION"),
             Token::EndFunction => write!(f, "ENDFUNCTION"),
             Token::Return => write!(f, "RETURN"),
+            Token::Import => write!(f, "IMPORT"),
+            Token::Pub => write!(f, "PUB"),
             Token::Plus => write!(f, "+"),
             Token::Minus => write!(f, "-"),
             Token::Star => write!(f, "*"),

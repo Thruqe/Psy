@@ -1,5 +1,14 @@
 #[derive(Debug, Clone)]
+pub struct ModuleImport {
+    pub name: String,
+    pub functions: Option<Vec<String>>, // None = import everything
+}
+
+#[derive(Debug, Clone)]
 pub enum Statement {
+    Import {
+        modules: Vec<ModuleImport>,
+    },
     Assign {
         variable: String,
         expression: Expression,
