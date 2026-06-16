@@ -1,18 +1,10 @@
-[package]
-name = "pseudocode-interpreter"
-version = "0.1.0"
-edition = "2024"
-
-[[bin]]
-name = "psc"
-path = "cli/src/main.rs"
-
-[dependencies]
-pseudocode-core = { path = "./core" }
-
 [workspace]
 resolver = "2"
-members = ["core", "cli"]
+members = ["core", "cli", "checker", "lsp"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
 
 [profile.release]
 codegen-units = 1

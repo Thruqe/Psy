@@ -1,6 +1,13 @@
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct PositionedToken {
+    pub token: Token,
+    pub line: usize,
+    pub column: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     // Keywords
     Start,

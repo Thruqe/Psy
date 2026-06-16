@@ -67,7 +67,7 @@ fn main() {
     }
 
     let mut parser = Parser::new(tokens);
-    let ast = parser.parse();
+    let (ast, _errors) = parser.parse();
 
     if debug_mode {
         println!("--- Abstract Syntax Tree ---");

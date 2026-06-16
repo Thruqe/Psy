@@ -1,29 +1,51 @@
 pub mod ast;
 
 use self::ast::{Expression, Operator, OutputValue, Statement, UnaryOperator};
-use crate::lexer::Token; 
+use crate::lexer::{PositionedToken, Token};
+
+#[derive(Debug, Clone)]
+pub struct ParseError {
+    pub message: String,
+    pub line: usize,
+    pub column: usize,
+}
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} (line {}, column {})",
+            self.message, self.line, self.column
+        )
+    }
+}
 
 pub struct Parser {
-    tokens: Vec<Token>,
+    tokens: Vec<PositionedToken>,
     position: usize,
+    errors: Vec<ParseError>,
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
+    pub fn new(tokens: Vec<PositionedToken>) -> Self {
         Parser {
             tokens,
             position: 0,
+            errors: Vec::new(),
         }
     }
 
-    pub fn parse(&mut self) -> Vec<Statement> {
+    /// Parses the program, collecting any errors encountered along the way
+    /// instead of printing them. Returns the parsed statements plus every
+    /// error/warning recorded during parsing.
+    pub fn parse(&mut self) -> (Vec<Statement>, Vec<ParseError>) {
         self.skip_newlines();
 
         if self.check(Token::Start) {
             self.advance();
             self.skip_newlines();
         } else {
-            eprintln!("Warning: Program should start with START");
+            self.push_error_at_current("Program should start with START");
         }
 
         let statements = self.parse_block_statements(&[Token::End]);
@@ -31,16 +53,12 @@ impl Parser {
         if self.check(Token::End) {
             self.advance();
         } else {
-            eprintln!("Warning: Program should end with END");
+            self.push_error_at_current("Program should end with END");
         }
 
-        statements
+        (statements, std::mem::take(&mut self.errors))
     }
 
-    /// Parses statements until EOF or one of `stop_tokens` is reached.
-    /// If an individual statement fails to parse, the error is reported
-    /// and parsing recovers locally (skipping just that statement) instead
-    /// of unwinding out of the surrounding block.
     fn parse_block_statements(&mut self, stop_tokens: &[Token]) -> Vec<Statement> {
         let mut statements = Vec::new();
 
@@ -54,7 +72,7 @@ impl Parser {
             match self.parse_statement() {
                 Ok(stmt) => statements.push(stmt),
                 Err(e) => {
-                    eprintln!("Parse error: {}", e);
+                    self.errors.push(e);
                     self.recover_to_boundary(stop_tokens);
                 }
             }
@@ -63,10 +81,6 @@ impl Parser {
         statements
     }
 
-    /// Skips tokens until a newline, one of `stop_tokens`, or EOF is found,
-    /// then consumes any trailing newlines. Used to resynchronize after a
-    /// statement-level parse error without losing track of the enclosing
-    /// block's terminator (ELSE/ELSEIF/ENDIF/ENDFOR/ENDWHILE/END).
     fn recover_to_boundary(&mut self, stop_tokens: &[Token]) {
         while !self.is_at_end() && !self.check(Token::Newline) && !self.at_any(stop_tokens) {
             self.advance();
@@ -79,11 +93,11 @@ impl Parser {
         tokens.iter().any(|t| t == &current)
     }
 
-    fn parse_statement(&mut self) -> Result<Statement, String> {
+    fn parse_statement(&mut self) -> Result<Statement, ParseError> {
         self.skip_newlines();
 
         if self.is_at_end() {
-            return Err("Unexpected end of file".to_string());
+            return Err(self.error_at_current("Unexpected end of file"));
         }
 
         if self.check(Token::Input) {
@@ -104,15 +118,16 @@ impl Parser {
             self.parse_array_assign()
         } else {
             let token = self.current();
-            self.advance();
-            Err(format!(
+            let err = self.error_at_current(&format!(
                 "Unknown statement starting with: {}",
                 token.to_string()
-            ))
+            ));
+            self.advance();
+            Err(err)
         }
     }
 
-    fn parse_input(&mut self) -> Result<Statement, String> {
+    fn parse_input(&mut self) -> Result<Statement, ParseError> {
         self.advance();
         self.skip_newlines();
 
@@ -126,7 +141,7 @@ impl Parser {
                     self.advance();
                 }
             } else {
-                return Err("Expected identifier after INPUT".to_string());
+                return Err(self.error_at_current("Expected identifier after INPUT"));
             }
         }
 
@@ -134,7 +149,7 @@ impl Parser {
         Ok(Statement::Input { variables })
     }
 
-    fn parse_output(&mut self) -> Result<Statement, String> {
+    fn parse_output(&mut self) -> Result<Statement, ParseError> {
         self.advance();
         self.skip_newlines();
 
@@ -159,18 +174,18 @@ impl Parser {
         Ok(Statement::Output { values })
     }
 
-    fn parse_assign(&mut self) -> Result<Statement, String> {
+    fn parse_assign(&mut self) -> Result<Statement, ParseError> {
         let var_name = if let Token::Identifier(name) = self.current() {
             name.clone()
         } else {
-            return Err("Expected identifier".to_string());
+            return Err(self.error_at_current("Expected identifier"));
         };
 
         self.advance();
         self.skip_newlines();
 
         if !self.check(Token::Assign) {
-            return Err("Expected = for assignment".to_string());
+            return Err(self.error_at_current("Expected = for assignment"));
         }
         self.advance();
         self.skip_newlines();
@@ -184,28 +199,28 @@ impl Parser {
         })
     }
 
-    fn parse_array_assign(&mut self) -> Result<Statement, String> {
+    fn parse_array_assign(&mut self) -> Result<Statement, ParseError> {
         let name = if let Token::Identifier(name) = self.current() {
             name.clone()
         } else {
-            return Err("Expected array name".to_string());
+            return Err(self.error_at_current("Expected array name"));
         };
         self.advance();
 
         if !self.check(Token::LeftBracket) {
-            return Err("Expected [ for array access".to_string());
+            return Err(self.error_at_current("Expected [ for array access"));
         }
         self.advance();
 
         let index = self.parse_expression()?;
 
         if !self.check(Token::RightBracket) {
-            return Err("Expected ] for array access".to_string());
+            return Err(self.error_at_current("Expected ] for array access"));
         }
         self.advance();
 
         if !self.check(Token::Assign) {
-            return Err("Expected = for array assignment".to_string());
+            return Err(self.error_at_current("Expected = for array assignment"));
         }
         self.advance();
 
@@ -219,7 +234,7 @@ impl Parser {
         })
     }
 
-    fn parse_if(&mut self) -> Result<Statement, String> {
+    fn parse_if(&mut self) -> Result<Statement, ParseError> {
         self.advance(); // Consume IF
 
         let condition = self.parse_expression()?;
@@ -259,7 +274,7 @@ impl Parser {
         }
 
         if !self.check(Token::EndIf) {
-            return Err("Expected ENDIF".to_string());
+            return Err(self.error_at_current("Expected ENDIF"));
         }
         self.advance(); // Consume ENDIF
         self.skip_newlines();
@@ -272,20 +287,20 @@ impl Parser {
         })
     }
 
-    fn parse_for(&mut self) -> Result<Statement, String> {
+    fn parse_for(&mut self) -> Result<Statement, ParseError> {
         self.advance();
         self.skip_newlines();
 
         let variable = if let Token::Identifier(name) = self.current() {
             name.clone()
         } else {
-            return Err("Expected loop variable".to_string());
+            return Err(self.error_at_current("Expected loop variable"));
         };
         self.advance();
         self.skip_newlines();
 
         if !self.check(Token::Assign) {
-            return Err("Expected = in FOR loop".to_string());
+            return Err(self.error_at_current("Expected = in FOR loop"));
         }
         self.advance();
         self.skip_newlines();
@@ -294,7 +309,7 @@ impl Parser {
         self.skip_newlines();
 
         if !self.check(Token::To) {
-            return Err("Expected TO in FOR loop".to_string());
+            return Err(self.error_at_current("Expected TO in FOR loop"));
         }
         self.advance();
         self.skip_newlines();
@@ -305,7 +320,7 @@ impl Parser {
         let body = self.parse_block_statements(&[Token::EndFor]);
 
         if !self.check(Token::EndFor) {
-            return Err("Expected ENDFOR".to_string());
+            return Err(self.error_at_current("Expected ENDFOR"));
         }
         self.advance();
         self.skip_newlines();
@@ -318,7 +333,7 @@ impl Parser {
         })
     }
 
-    fn parse_while(&mut self) -> Result<Statement, String> {
+    fn parse_while(&mut self) -> Result<Statement, ParseError> {
         self.advance();
         self.skip_newlines();
 
@@ -328,7 +343,7 @@ impl Parser {
         let body = self.parse_block_statements(&[Token::EndWhile]);
 
         if !self.check(Token::EndWhile) {
-            return Err("Expected ENDWHILE".to_string());
+            return Err(self.error_at_current("Expected ENDWHILE"));
         }
         self.advance();
         self.skip_newlines();
@@ -336,31 +351,31 @@ impl Parser {
         Ok(Statement::WhileLoop { condition, body })
     }
 
-    fn parse_declare(&mut self) -> Result<Statement, String> {
+    fn parse_declare(&mut self) -> Result<Statement, ParseError> {
         self.advance();
         self.skip_newlines();
 
         let name = if let Token::Identifier(name) = self.current() {
             name.clone()
         } else {
-            return Err("Expected array name after DECLARE".to_string());
+            return Err(self.error_at_current("Expected array name after DECLARE"));
         };
         self.advance();
         self.skip_newlines();
 
         if !self.check(Token::LeftBracket) {
-            return Err("Expected [ for array size".to_string());
+            return Err(self.error_at_current("Expected [ for array size"));
         }
         self.advance();
 
         let size = match self.current() {
             Token::Number(n) => n as usize,
-            _ => return Err("Expected number for array size".to_string()),
+            _ => return Err(self.error_at_current("Expected number for array size")),
         };
         self.advance();
 
         if !self.check(Token::RightBracket) {
-            return Err("Expected ] for array size".to_string());
+            return Err(self.error_at_current("Expected ] for array size"));
         }
         self.advance();
 
@@ -368,11 +383,11 @@ impl Parser {
         Ok(Statement::DeclareArray { name, size })
     }
 
-    fn parse_expression(&mut self) -> Result<Expression, String> {
+    fn parse_expression(&mut self) -> Result<Expression, ParseError> {
         self.parse_or()
     }
 
-    fn parse_or(&mut self) -> Result<Expression, String> {
+    fn parse_or(&mut self) -> Result<Expression, ParseError> {
         let mut left = self.parse_and()?;
 
         while self.check(Token::Or) {
@@ -388,7 +403,7 @@ impl Parser {
         Ok(left)
     }
 
-    fn parse_and(&mut self) -> Result<Expression, String> {
+    fn parse_and(&mut self) -> Result<Expression, ParseError> {
         let mut left = self.parse_comparison()?;
 
         while self.check(Token::And) {
@@ -404,7 +419,7 @@ impl Parser {
         Ok(left)
     }
 
-    fn parse_comparison(&mut self) -> Result<Expression, String> {
+    fn parse_comparison(&mut self) -> Result<Expression, ParseError> {
         let mut left = self.parse_addition()?;
 
         loop {
@@ -430,7 +445,7 @@ impl Parser {
         Ok(left)
     }
 
-    fn parse_addition(&mut self) -> Result<Expression, String> {
+    fn parse_addition(&mut self) -> Result<Expression, ParseError> {
         let mut left = self.parse_multiplication()?;
 
         loop {
@@ -451,7 +466,7 @@ impl Parser {
         Ok(left)
     }
 
-    fn parse_multiplication(&mut self) -> Result<Expression, String> {
+    fn parse_multiplication(&mut self) -> Result<Expression, ParseError> {
         let mut left = self.parse_modulo()?;
 
         loop {
@@ -472,7 +487,7 @@ impl Parser {
         Ok(left)
     }
 
-    fn parse_modulo(&mut self) -> Result<Expression, String> {
+    fn parse_modulo(&mut self) -> Result<Expression, ParseError> {
         let mut left = self.parse_power()?;
 
         while self.check(Token::Percent) {
@@ -488,7 +503,7 @@ impl Parser {
         Ok(left)
     }
 
-    fn parse_power(&mut self) -> Result<Expression, String> {
+    fn parse_power(&mut self) -> Result<Expression, ParseError> {
         let mut left = self.parse_unary()?;
 
         while self.check(Token::Caret) {
@@ -504,7 +519,7 @@ impl Parser {
         Ok(left)
     }
 
-    fn parse_unary(&mut self) -> Result<Expression, String> {
+    fn parse_unary(&mut self) -> Result<Expression, ParseError> {
         if self.check(Token::Minus) {
             self.advance();
             let expr = self.parse_unary()?;
@@ -526,7 +541,7 @@ impl Parser {
         self.parse_primary()
     }
 
-    fn parse_primary(&mut self) -> Result<Expression, String> {
+    fn parse_primary(&mut self) -> Result<Expression, ParseError> {
         self.skip_newlines();
 
         match self.current() {
@@ -548,7 +563,7 @@ impl Parser {
                     self.advance();
                     let index = self.parse_expression()?;
                     if !self.check(Token::RightBracket) {
-                        return Err("Expected ]".to_string());
+                        return Err(self.error_at_current("Expected ]"));
                     }
                     self.advance();
                     Ok(Expression::ArrayAccess {
@@ -559,16 +574,44 @@ impl Parser {
                     Ok(Expression::Identifier(name.clone()))
                 }
             }
-            token => Err(format!("Unexpected token: {}", token.to_string())),
+            token => {
+                Err(self.error_at_current(&format!("Unexpected token: {}", token.to_string())))
+            }
         }
     }
 
     fn current(&self) -> Token {
         if self.position < self.tokens.len() {
-            self.tokens[self.position].clone()
+            self.tokens[self.position].token.clone()
         } else {
             Token::EOF
         }
+    }
+
+    fn current_pos(&self) -> (usize, usize) {
+        if self.position < self.tokens.len() {
+            let t = &self.tokens[self.position];
+            (t.line, t.column)
+        } else {
+            self.tokens
+                .last()
+                .map(|t| (t.line, t.column))
+                .unwrap_or((1, 1))
+        }
+    }
+
+    fn error_at_current(&self, message: &str) -> ParseError {
+        let (line, column) = self.current_pos();
+        ParseError {
+            message: message.to_string(),
+            line,
+            column,
+        }
+    }
+
+    fn push_error_at_current(&mut self, message: &str) {
+        let err = self.error_at_current(message);
+        self.errors.push(err);
     }
 
     fn advance(&mut self) {
@@ -597,7 +640,7 @@ impl Parser {
 
     fn peek_next_is_assign(&self) -> bool {
         if self.position + 1 < self.tokens.len() {
-            self.tokens[self.position + 1] == Token::Assign
+            self.tokens[self.position + 1].token == Token::Assign
         } else {
             false
         }
@@ -606,7 +649,7 @@ impl Parser {
     fn peek_is_array_access(&self) -> bool {
         if self.position + 1 < self.tokens.len() {
             if let Token::Identifier(_) = self.current() {
-                return self.tokens[self.position + 1] == Token::LeftBracket;
+                return self.tokens[self.position + 1].token == Token::LeftBracket;
             }
         }
         false

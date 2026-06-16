@@ -1,11 +1,10 @@
 [package]
-name = "psc"
+name = "pseudocode-checker"
 version.workspace = true
 edition.workspace = true
 
-[[bin]]
-name = "psc"
-path = "src/main.rs"
+[lib]
+path = "src/lib.rs"
 
 [dependencies]
 pseudocode-core = { path = "../core" }

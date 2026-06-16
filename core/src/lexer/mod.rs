@@ -1,18 +1,25 @@
 mod token;
-pub use token::Token;
+pub use token::{PositionedToken, Token};
 
 pub struct Lexer {
     position: usize,
     chars: Vec<char>,
+    line: usize,
+    column: usize,
 }
 
 impl Lexer {
     pub fn new(input: String) -> Self {
         let chars: Vec<char> = input.chars().collect();
-        Lexer { position: 0, chars }
+        Lexer {
+            position: 0,
+            chars,
+            line: 1,
+            column: 1,
+        }
     }
 
-    pub fn tokenize(&mut self) -> Vec<Token> {
+    pub fn tokenize(&mut self) -> Vec<PositionedToken> {
         let mut tokens = Vec::new();
 
         while self.position < self.chars.len() {
@@ -20,55 +27,65 @@ impl Lexer {
 
             // Skip whitespace except newlines
             if ch.is_whitespace() && ch != '\n' {
-                self.position += 1;
+                self.advance_char();
                 continue;
             }
 
             // Handle newlines
             if ch == '\n' {
-                tokens.push(Token::Newline);
-                self.position += 1;
+                let (line, column) = (self.line, self.column);
+                self.advance_char();
+                tokens.push(PositionedToken {
+                    token: Token::Newline,
+                    line,
+                    column,
+                });
                 continue;
             }
 
             // Single-line comments: //
             if ch == '/' && self.peek() == Some('/') {
-                // Skip the rest of the line
                 while self.position < self.chars.len() && self.chars[self.position] != '\n' {
-                    self.position += 1;
+                    self.advance_char();
                 }
-                // The newline will be added in the next iteration
                 continue;
             }
 
             // Multi-line comments: /* */
             if ch == '/' && self.peek() == Some('*') {
-                self.position += 2; // Skip /*
+                self.advance_char();
+                self.advance_char();
                 while self.position < self.chars.len() {
                     if self.chars[self.position] == '*' && self.peek() == Some('/') {
-                        self.position += 2; // Skip */
+                        self.advance_char();
+                        self.advance_char();
                         break;
                     }
-                    self.position += 1;
+                    self.advance_char();
                 }
                 continue;
             }
 
             // String literals
             if ch == '"' {
+                let (line, column) = (self.line, self.column);
                 let mut string = String::new();
-                self.position += 1; // Skip opening quote
+                self.advance_char(); // Skip opening quote
 
                 while self.position < self.chars.len() && self.chars[self.position] != '"' {
                     string.push(self.chars[self.position]);
-                    self.position += 1;
+                    self.advance_char();
                 }
 
                 if self.position < self.chars.len() {
-                    self.position += 1; // Skip closing quote
+                    self.advance_char(); // Skip closing quote
                 }
 
-                tokens.push(Token::StringLiteral(string));
+                tokens.push(PositionedToken {
+                    token: Token::StringLiteral(string),
+                    line,
+                    column,
+                });
                 continue;
             }
 
@@ -76,6 +93,7 @@ impl Lexer {
             if ch.is_ascii_digit()
                 || (ch == '.' && self.peek().map_or(false, |c| c.is_ascii_digit()))
             {
+                let (line, column) = (self.line, self.column);
                 let mut number = String::new();
                 let mut has_decimal = false;
 
@@ -84,30 +102,35 @@ impl Lexer {
                     if c == '.' && !has_decimal {
                         number.push(c);
                         has_decimal = true;
-                        self.position += 1;
+                        self.advance_char();
                     } else if c.is_ascii_digit() {
                         number.push(c);
-                        self.position += 1;
+                        self.advance_char();
                     } else {
                         break;
                     }
                 }
 
                 if let Ok(num) = number.parse::<f64>() {
-                    tokens.push(Token::Number(num));
+                    tokens.push(PositionedToken {
+                        token: Token::Number(num),
+                        line,
+                        column,
+                    });
                 }
                 continue;
             }
 
             // Identifiers and keywords
             if ch.is_alphabetic() || ch == '_' {
+                let (line, column) = (self.line, self.column);
                 let mut ident = String::new();
 
                 while self.position < self.chars.len() {
                     let c = self.chars[self.position];
                     if c.is_alphanumeric() || c == '_' {
                         ident.push(c);
-                        self.position += 1;
+                        self.advance_char();
                     } else {
                         break;
                     }
@@ -136,92 +159,173 @@ impl Lexer {
                     "FALSE" => Token::Boolean(false),
                     _ => Token::Identifier(ident),
                 };
-                tokens.push(token);
+                tokens.push(PositionedToken {
+                    token,
+                    line,
+                    column,
+                });
                 continue;
             }
 
             // Operators and punctuation
+            let (line, column) = (self.line, self.column);
             match ch {
                 '+' => {
-                    tokens.push(Token::Plus);
-                    self.position += 1;
+                    self.advance_char();
+                    tokens.push(PositionedToken {
+                        token: Token::Plus,
+                        line,
+                        column,
+                    });
                 }
                 '-' => {
-                    tokens.push(Token::Minus);
-                    self.position += 1;
+                    self.advance_char();
+                    tokens.push(PositionedToken {
+                        token: Token::Minus,
+                        line,
+                        column,
+                    });
                 }
                 '*' => {
-                    tokens.push(Token::Star);
-                    self.position += 1;
+                    self.advance_char();
+                    tokens.push(PositionedToken {
+                        token: Token::Star,
+                        line,
+                        column,
+                    });
                 }
                 '/' => {
-                    tokens.push(Token::Slash);
-                    self.position += 1;
+                    self.advance_char();
+                    tokens.push(PositionedToken {
+                        token: Token::Slash,
+                        line,
+                        column,
+                    });
                 }
                 '%' => {
-                    tokens.push(Token::Percent);
-                    self.position += 1;
+                    self.advance_char();
+                    tokens.push(PositionedToken {
+                        token: Token::Percent,
+                        line,
+                        column,
+                    });
                 }
                 '^' => {
-                    tokens.push(Token::Caret);
-                    self.position += 1;
+                    self.advance_char();
+                    tokens.push(PositionedToken {
+                        token: Token::Caret,
+                        line,
+                        column,
+                    });
                 }
                 '=' => {
                     if self.peek() == Some('=') {
-                        tokens.push(Token::Eq);
-                        self.position += 2;
+                        self.advance_char();
+                        self.advance_char();
+                        tokens.push(PositionedToken {
+                            token: Token::Eq,
+                            line,
+                            column,
+                        });
                     } else {
-                        tokens.push(Token::Assign);
-                        self.position += 1;
+                        self.advance_char();
+                        tokens.push(PositionedToken {
+                            token: Token::Assign,
+                            line,
+                            column,
+                        });
                     }
                 }
                 '<' => {
                     if self.peek() == Some('=') {
-                        tokens.push(Token::LessEqual);
-                        self.position += 2;
+                        self.advance_char();
+                        self.advance_char();
+                        tokens.push(PositionedToken {
+                            token: Token::LessEqual,
+                            line,
+                            column,
+                        });
                     } else {
-                        tokens.push(Token::LessThan);
-                        self.position += 1;
+                        self.advance_char();
+                        tokens.push(PositionedToken {
+                            token: Token::LessThan,
+                            line,
+                            column,
+                        });
                     }
                 }
                 '>' => {
                     if self.peek() == Some('=') {
-                        tokens.push(Token::GreaterEqual);
-                        self.position += 2;
+                        self.advance_char();
+                        self.advance_char();
+                        tokens.push(PositionedToken {
+                            token: Token::GreaterEqual,
+                            line,
+                            column,
+                        });
                     } else {
-                        tokens.push(Token::GreaterThan);
-                        self.position += 1;
+                        self.advance_char();
+                        tokens.push(PositionedToken {
+                            token: Token::GreaterThan,
+                            line,
+                            column,
+                        });
                     }
                 }
                 '!' => {
                     if self.peek() == Some('=') {
-                        tokens.push(Token::NotEqual);
-                        self.position += 2;
+                        self.advance_char();
+                        self.advance_char();
+                        tokens.push(PositionedToken {
+                            token: Token::NotEqual,
+                            line,
+                            column,
+                        });
                     } else {
-                        tokens.push(Token::Not);
-                        self.position += 1;
+                        self.advance_char();
+                        tokens.push(PositionedToken {
+                            token: Token::Not,
+                            line,
+                            column,
+                        });
                     }
                 }
                 '[' => {
-                    tokens.push(Token::LeftBracket);
-                    self.position += 1;
+                    self.advance_char();
+                    tokens.push(PositionedToken {
+                        token: Token::LeftBracket,
+                        line,
+                        column,
+                    });
                 }
                 ']' => {
-                    tokens.push(Token::RightBracket);
-                    self.position += 1;
+                    self.advance_char();
+                    tokens.push(PositionedToken {
+                        token: Token::RightBracket,
+                        line,
+                        column,
+                    });
                 }
                 ',' => {
-                    tokens.push(Token::Comma);
-                    self.position += 1;
+                    self.advance_char();
+                    tokens.push(PositionedToken {
+                        token: Token::Comma,
+                        line,
+                        column,
+                    });
                 }
                 _ => {
                     // Unknown character - skip it
-                    self.position += 1;
+                    self.advance_char();
                 }
             }
         }
 
-        tokens.push(Token::EOF);
+        tokens.push(PositionedToken {
+            token: Token::EOF,
+            line: self.line,
+            column: self.column,
+        });
         tokens
     }
 
@@ -230,6 +334,19 @@ impl Lexer {
             Some(self.chars[self.position + 1])
         } else {
             None
+        }
+    }
+
+    /// Advances position by one character, updating line/column tracking.
+    fn advance_char(&mut self) {
+        if self.position < self.chars.len() {
+            if self.chars[self.position] == '\n' {
+                self.line += 1;
+                self.column = 1;
+            } else {
+                self.column += 1;
+            }
+            self.position += 1;
         }
     }
 }

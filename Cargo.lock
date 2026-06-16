@@ -3,7 +3,14 @@
 version = 4
 
 [[package]]
-name = "pseudocode-cli"
+name = "psc"
+version = "0.1.0"
+dependencies = [
+ "pseudocode-core",
+]
+
+[[package]]
+name = "pseudocode-checker"
 version = "0.1.0"
 dependencies = [
  "pseudocode-core",
@@ -14,8 +21,9 @@ name = "pseudocode-core"
 version = "0.1.0"
 
 [[package]]
-name = "pseudocode-interpreter"
+name = "pseudocode-lsp"
 version = "0.1.0"
 dependencies = [
+ "pseudocode-checker",
  "pseudocode-core",
 ]
