@@ -1,3 +1,4 @@
+use pseudocode_core::formatter::Formatter;
 use pseudocode_core::interpreter::Interpreter;
 use pseudocode_core::lexer::Lexer;
 use pseudocode_core::parser::Parser;
@@ -12,15 +13,14 @@ fn main() {
         .unwrap_or("pseudocode-interpreter");
 
     if args.len() < 2 {
-        println!("Pseudocode Interpreter");
-        println!();
-        println!("Usage:");
-        println!("  {} <filename.psc>", program_name);
-        println!();
+        print_usage(program_name);
         return;
     }
 
     let filename = &args[1];
+
+    // Check for formatting flag
+    let fmt_mode = args.len() > 2 && args[2] == "--fmt";
     let debug_mode = args.len() > 2 && args[2] == "--debug";
 
     let source = match fs::read_to_string(filename) {
@@ -31,6 +31,27 @@ fn main() {
         }
     };
 
+    // If --fmt flag is present, format and output
+    if fmt_mode {
+        let mut formatter = Formatter::new();
+        match formatter.format(&source) {
+            Ok(formatted) => {
+                // Write formatted output back to the file
+                if let Err(e) = fs::write(filename, formatted) {
+                    eprintln!("Error writing formatted file: {}", e);
+                } else {
+                    println!("✓ Formatted: {}", filename);
+                }
+            }
+            Err(e) => {
+                eprintln!("Formatting error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+
+    // Normal execution mode
     println!("=== Running: {} ===", filename);
     println!();
 
@@ -71,4 +92,27 @@ fn main() {
             eprintln!("Runtime Error: {}", e);
         }
     }
+}
+
+fn print_usage(program_name: &str) {
+    println!("Pseudocode Interpreter");
+    println!();
+    println!("Usage:");
+    println!(
+        "  {} <filename.psc>          Run a pseudocode file",
+        program_name
+    );
+    println!(
+        "  {} <filename.psc> --debug  Run with debug output",
+        program_name
+    );
+    println!(
+        "  {} <filename.psc> --fmt    Format a pseudocode file",
+        program_name
+    );
+    println!();
+    println!("Examples:");
+    println!("  {} program.psc", program_name);
+    println!("  {} program.psc --debug", program_name);
+    println!("  {} program.psc --fmt", program_name);
 }
