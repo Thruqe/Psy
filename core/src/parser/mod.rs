@@ -3,11 +3,18 @@ pub mod ast;
 use self::ast::{Expression, Operator, OutputValue, Statement, UnaryOperator};
 use crate::lexer::{PositionedToken, Token};
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum Severity {
+    Error,
+    Warning,
+}
+
 #[derive(Debug, Clone)]
 pub struct ParseError {
     pub message: String,
     pub line: usize,
     pub column: usize,
+    pub severity: Severity,
 }
 
 impl std::fmt::Display for ParseError {
@@ -45,7 +52,7 @@ impl Parser {
             self.advance();
             self.skip_newlines();
         } else {
-            self.push_error_at_current("Program should start with START");
+            self.push_warning_at_current("Program should start with START");
         }
 
         let statements = self.parse_block_statements(&[Token::End]);
@@ -53,12 +60,11 @@ impl Parser {
         if self.check(Token::End) {
             self.advance();
         } else {
-            self.push_error_at_current("Program should end with END");
+            self.push_warning_at_current("Program should end with END");
         }
 
         (statements, std::mem::take(&mut self.errors))
     }
-
     fn parse_block_statements(&mut self, stop_tokens: &[Token]) -> Vec<Statement> {
         let mut statements = Vec::new();
 
@@ -606,12 +612,23 @@ impl Parser {
             message: message.to_string(),
             line,
             column,
+            severity: Severity::Error,
         }
     }
 
-    fn push_error_at_current(&mut self, message: &str) {
-        let err = self.error_at_current(message);
-        self.errors.push(err);
+    fn warning_at_current(&self, message: &str) -> ParseError {
+        let (line, column) = self.current_pos();
+        ParseError {
+            message: message.to_string(),
+            line,
+            column,
+            severity: Severity::Warning,
+        }
+    }
+
+    fn push_warning_at_current(&mut self, message: &str) {
+        let warn = self.warning_at_current(message);
+        self.errors.push(warn);
     }
 
     fn advance(&mut self) {

@@ -1,8 +1,5 @@
-#[derive(Debug, Clone, PartialEq)]
-pub enum Severity {
-    Error,
-    Warning,
-}
+use pseudocode_core::parser::ParseError;
+pub use pseudocode_core::parser::Severity;
 
 #[derive(Debug, Clone)]
 pub struct Diagnostic {
@@ -11,4 +8,16 @@ pub struct Diagnostic {
     pub column: usize,
     pub severity: Severity,
     pub suggestion: Option<String>,
+}
+
+impl From<ParseError> for Diagnostic {
+    fn from(err: ParseError) -> Self {
+        Diagnostic {
+            message: err.message,
+            line: err.line,
+            column: err.column,
+            severity: err.severity,
+            suggestion: None,
+        }
+    }
 }
