@@ -21,7 +21,7 @@ A Rust-based interpreter for executing pseudocode written in a custom educationa
 
 ### Variables
 
-```
+```psc
 x ← 10
 name ← "Alice"
 is_valid ← TRUE
@@ -29,14 +29,14 @@ is_valid ← TRUE
 
 ### Arrays
 
-```
+```psc
 arr ← [1, 2, 3, 4, 5]
 arr[2] ← 10
 ```
 
 ### Input/Output
 
-```
+```psc
 OUTPUT "Enter your name: "
 INPUT name
 OUTPUT "Hello, " + name
@@ -44,7 +44,7 @@ OUTPUT "Hello, " + name
 
 ### Conditionals
 
-```
+```psc
 IF x > 10 THEN
 OUTPUT "x is greater than 10"
 ELSE
@@ -54,7 +54,7 @@ ENDIF
 
 ### Loops
 
-```
+```psc
 FOR i ← 1 TO 5 DO
 OUTPUT i
 ENDFOR
@@ -66,7 +66,7 @@ ENDWHILE
 
 ### Functions
 
-```
+```psc
 FUNCTION factorial(n)
 IF n ≤ 1 THEN
 RETURN 1
