@@ -9,3 +9,4 @@ path = "src/main.rs"
 
 [dependencies]
 pseudocode-core = { path = "../core" }
+pseudocode-checker = { path = "../checker" }

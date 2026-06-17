@@ -30,6 +30,8 @@ pub enum Token {
     Return,
     Import,
     Pub,
+    Const,
+    Static,
 
     // Operators
     Plus,
@@ -91,6 +93,8 @@ impl fmt::Display for Token {
             Token::While => write!(f, "WHILE"),
             Token::EndWhile => write!(f, "ENDWHILE"),
             Token::Declare => write!(f, "DECLARE"),
+            Token::Const => write!(f, "CONST"),
+            Token::Static => write!(f, "STATIC"),
             Token::Function => write!(f, "FUNCTION"),
             Token::EndFunction => write!(f, "ENDFUNCTION"),
             Token::Return => write!(f, "RETURN"),

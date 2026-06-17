@@ -162,6 +162,8 @@ impl Lexer {
                     "RETURN" => Token::Return,
                     "IMPORT" => Token::Import,
                     "PUB" => Token::Pub,
+                    "CONST" => Token::Const,
+                    "STATIC" => Token::Static,
                     _ => Token::Identifier(ident),
                 };
                 tokens.push(PositionedToken {

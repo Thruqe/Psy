@@ -33,10 +33,40 @@ fn main() {
 
     // If --fmt flag is present, format and output
     if fmt_mode {
+        let diagnostics = pseudocode_checker::check(&source);
+        let errors: Vec<_> = diagnostics
+            .iter()
+            .filter(|d| d.severity == pseudocode_checker::Severity::Error)
+            .collect();
+
+        if !errors.is_empty() {
+            eprintln!("Cannot format {}: syntax errors found", filename);
+            for err in &errors {
+                eprintln!(
+                    "  error at line {}, column {}: {}",
+                    err.line, err.column, err.message
+                );
+                if let Some(suggestion) = &err.suggestion {
+                    eprintln!("    suggestion: {}", suggestion);
+                }
+            }
+            std::process::exit(1);
+        }
+
+        let warnings: Vec<_> = diagnostics
+            .iter()
+            .filter(|d| d.severity == pseudocode_checker::Severity::Warning)
+            .collect();
+        for warn in &warnings {
+            eprintln!(
+                "warning at line {}, column {}: {}",
+                warn.line, warn.column, warn.message
+            );
+        }
+
         let mut formatter = Formatter::new();
         match formatter.format(&source) {
             Ok(formatted) => {
-                // Write formatted output back to the file
                 if let Err(e) = fs::write(filename, formatted) {
                     eprintln!("Error writing formatted file: {}", e);
                 } else {
@@ -50,10 +80,6 @@ fn main() {
         }
         return;
     }
-
-    // Normal execution mode
-    println!("=== Running: {} ===", filename);
-    println!();
 
     let mut lexer = Lexer::new(source.clone());
     let tokens = lexer.tokenize();
@@ -81,9 +107,6 @@ fn main() {
 
     match interpreter.run(&ast) {
         Ok(_) => {
-            println!();
-            println!("=== Execution Complete ===");
-
             if debug_mode {
                 println!();
                 interpreter.print_state();

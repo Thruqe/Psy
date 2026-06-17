@@ -41,20 +41,22 @@ impl Interpreter {
             if let Statement::Import { modules } = stmt {
                 for module_import in modules {
                     if let Some(module) = get_module(&module_import.name) {
-                        // Register native functions
-                        for (name, func) in module.functions {
-                            self.native_functions.insert(name.to_string(), func);
-                        }
-                        // Register constants
-                        for (name, value) in module.constants {
-                            self.environment.set(&name, value);
+                        let mut funcs = module.functions;
+
+                        if let Some(imported_funcs) = &module_import.functions {
+                            funcs.retain(|k, _| imported_funcs.iter().any(|f| f == k));
                         }
 
-                        // If specific functions are imported, filter them
+                        for (name, func) in funcs {
+                            self.native_functions.insert(name.to_string(), func);
+                        }
+
+                        let mut consts = module.constants;
                         if let Some(imported_funcs) = &module_import.functions {
-                            // Keep only the functions that were explicitly imported
-                            self.native_functions
-                                .retain(|k, _| imported_funcs.contains(k));
+                            consts.retain(|k, _| imported_funcs.iter().any(|f| f == k));
+                        }
+                        for (name, value) in consts {
+                            self.environment.set(&name, value);
                         }
                     } else {
                         return Err(format!("Unknown module: {}", module_import.name));
@@ -204,6 +206,11 @@ impl Interpreter {
                 }
                 Ok(ControlFlow::Normal)
             }
+            Statement::ConstDeclaration { .. } => {
+                // Real const-tracking lands in stage 2 — this is a placeholder
+                // so the build stays green while the parser rule is written.
+                Ok(ControlFlow::Normal)
+            }
             Statement::DeclareArray { name, size } => {
                 self.environment.declare_array(name, *size);
                 Ok(ControlFlow::Normal)
@@ -245,10 +252,42 @@ impl Interpreter {
         }
         Ok(ControlFlow::Normal)
     }
+
     fn call_function(&mut self, name: &str, arguments: &[Expression]) -> Result<Value, String> {
-        // Check if it's a native function first
+        // Check user-defined functions first — they take priority over
+        // imported native functions if names collide.
+        if let Some(func) = self.functions.get(name).cloned() {
+            if arguments.len() != func.parameters.len() {
+                return Err(format!(
+                    "Function {} expects {} argument(s), got {}",
+                    name,
+                    func.parameters.len(),
+                    arguments.len()
+                ));
+            }
+
+            let mut arg_values = Vec::with_capacity(arguments.len());
+            for arg in arguments {
+                arg_values.push(self.evaluate_expression(arg)?);
+            }
+
+            let mut call_env = Environment::new();
+            for (param, value) in func.parameters.iter().zip(arg_values.into_iter()) {
+                call_env.set(param, value);
+            }
+
+            let caller_env = std::mem::replace(&mut self.environment, call_env);
+            let result = self.execute_block(&func.body);
+            self.environment = caller_env;
+
+            return match result? {
+                ControlFlow::Return(v) => Ok(v),
+                ControlFlow::Normal => Ok(Value::Undefined),
+            };
+        }
+
+        // Fall back to native functions
         if let Some(native_func) = self.native_functions.get(name).cloned() {
-            // Evaluate arguments in the caller's environment
             let mut arg_values = Vec::with_capacity(arguments.len());
             for arg in arguments {
                 arg_values.push(self.evaluate_expression(arg)?);
@@ -256,48 +295,7 @@ impl Interpreter {
             return native_func(&arg_values);
         }
 
-        // Then check user-defined functions
-        let func = self
-            .functions
-            .get(name)
-            .cloned()
-            .ok_or_else(|| format!("Undefined function: {}", name))?;
-
-        if arguments.len() != func.parameters.len() {
-            return Err(format!(
-                "Function {} expects {} argument(s), got {}",
-                name,
-                func.parameters.len(),
-                arguments.len()
-            ));
-        }
-
-        // Evaluate arguments in the *caller's* environment before swapping,
-        // since they may reference the caller's variables.
-        let mut arg_values = Vec::with_capacity(arguments.len());
-        for arg in arguments {
-            arg_values.push(self.evaluate_expression(arg)?);
-        }
-
-        // Build a fresh, isolated environment for the call: only the
-        // parameters are visible, nothing from the caller's scope leaks in.
-        let mut call_env = Environment::new();
-        for (param, value) in func.parameters.iter().zip(arg_values.into_iter()) {
-            call_env.set(param, value);
-        }
-
-        // Swap in the call's environment, run the body, then restore the
-        // caller's environment regardless of how the call finishes.
-        let caller_env = std::mem::replace(&mut self.environment, call_env);
-
-        let result = self.execute_block(&func.body);
-
-        self.environment = caller_env;
-
-        match result? {
-            ControlFlow::Return(v) => Ok(v),
-            ControlFlow::Normal => Ok(Value::Undefined),
-        }
+        Err(format!("Undefined function: {}", name))
     }
 
     fn evaluate_expression(&mut self, expr: &Expression) -> Result<Value, String> {
@@ -320,6 +318,13 @@ impl Interpreter {
                 } else {
                     Err("Array index must be a number".to_string())
                 }
+            }
+            Expression::ArrayLiteral(elements) => {
+                let mut values = Vec::with_capacity(elements.len());
+                for elem in elements {
+                    values.push(self.evaluate_expression(elem)?);
+                }
+                Ok(Value::Array(values))
             }
             Expression::FunctionCall { name, arguments } => self.call_function(name, arguments),
             Expression::BinaryOp {

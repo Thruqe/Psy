@@ -49,6 +49,10 @@ pub enum Statement {
         parameters: Vec<String>,
         body: Vec<Statement>,
     },
+    ConstDeclaration {
+        name: String,
+        expression: Expression,
+    },
     Return {
         value: Option<Expression>,
     },
@@ -64,6 +68,7 @@ pub enum Expression {
         name: String,
         index: Box<Expression>,
     },
+    ArrayLiteral(Vec<Expression>),
     BinaryOp {
         left: Box<Expression>,
         operator: Operator,

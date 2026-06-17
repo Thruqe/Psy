@@ -695,6 +695,19 @@ impl Parser {
                 self.advance();
                 Ok(Expression::Boolean(b))
             }
+            Token::LeftBracket => {
+                self.advance();
+                let mut elements = Vec::new();
+
+                while !self.check(Token::RightBracket) {
+                    elements.push(self.parse_expression()?);
+                    if self.check(Token::Comma) {
+                        self.advance();
+                    }
+                }
+                self.advance(); // Consume ]
+                Ok(Expression::ArrayLiteral(elements))
+            }
             Token::Identifier(name) => {
                 self.advance();
                 if self.check(Token::LeftBracket) {

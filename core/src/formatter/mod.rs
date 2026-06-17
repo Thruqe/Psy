@@ -17,19 +17,37 @@ impl Formatter {
     }
 
     pub fn format(&mut self, source: &str) -> Result<String, String> {
-        // First, parse the source
         use crate::lexer::Lexer;
         use crate::parser::Parser;
 
         let mut lexer = Lexer::new(source.to_string());
         let tokens = lexer.tokenize();
         let mut parser = Parser::new(tokens);
-        let (ast, _errors) = parser.parse(); // Destructure the tuple
+        let (ast, _errors) = parser.parse();
 
-        // Format the AST
-        for stmt in &ast {
+        let (imports, body): (Vec<_>, Vec<_>) = ast
+            .iter()
+            .partition(|stmt| matches!(stmt, Statement::Import { .. }));
+
+        for stmt in &imports {
             self.format_statement(stmt)?;
         }
+        if !imports.is_empty() {
+            writeln!(self.output).map_err(|e| e.to_string())?;
+        }
+
+        writeln!(self.output, "START").map_err(|e| e.to_string())?;
+
+        self.indent_level += 1;
+        for (i, stmt) in body.iter().enumerate() {
+            if i > 0 {
+                writeln!(self.output).map_err(|e| e.to_string())?;
+            }
+            self.format_statement(stmt)?;
+        }
+        self.indent_level -= 1;
+
+        writeln!(self.output, "END").map_err(|e| e.to_string())?;
 
         Ok(self.output.clone())
     }
@@ -93,6 +111,12 @@ impl Formatter {
                 self.indent_level -= 1;
 
                 writeln!(self.output, "{}ENDFUNCTION", indent).map_err(|e| e.to_string())?;
+            }
+            Statement::ConstDeclaration { name, expression } => {
+                let indent = " ".repeat(self.indent_level * self.indent_size);
+                let expr_str = self.format_expression(expression)?;
+                writeln!(self.output, "{}CONST {} = {}", indent, name, expr_str)
+                    .map_err(|e| e.to_string())?;
             }
             Statement::Return { value } => match value {
                 Some(expr) => {
@@ -211,6 +235,11 @@ impl Formatter {
             Expression::ArrayAccess { name, index } => {
                 let idx = self.format_expression(index)?;
                 Ok(format!("{}[{}]", name, idx))
+            }
+            Expression::ArrayLiteral(elements) => {
+                let parts: Result<Vec<String>, String> =
+                    elements.iter().map(|e| self.format_expression(e)).collect();
+                Ok(format!("[{}]", parts?.join(", ")))
             }
             Expression::FunctionCall { name, arguments } => {
                 let args: Result<Vec<String>, String> = arguments
