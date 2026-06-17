@@ -543,16 +543,25 @@ impl Parser {
         self.advance();
 
         let mut parameters = Vec::new();
-        while !self.check(Token::RightParen) {
-            if let Token::Identifier(param) = self.current() {
-                parameters.push(param.clone());
-                self.advance();
+        if !self.check(Token::RightParen) {
+            loop {
+                if let Token::Identifier(param) = self.current() {
+                    parameters.push(param.clone());
+                    self.advance();
+                } else {
+                    return Err(self.error_at_current("Expected parameter name"));
+                }
+
                 if self.check(Token::Comma) {
                     self.advance();
+                } else {
+                    break;
                 }
-            } else {
-                return Err(self.error_at_current("Expected parameter name"));
             }
+        }
+
+        if !self.check(Token::RightParen) {
+            return Err(self.error_at_current("Expected , or ) in parameter list"));
         }
         self.advance(); // Consume )
         self.skip_newlines();
