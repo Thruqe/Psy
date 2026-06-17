@@ -21,8 +21,9 @@ enum ControlFlow {
 pub struct Interpreter {
     environment: Environment,
     functions: HashMap<String, FunctionDef>,
-    native_functions: HashMap<String, native::NativeFn>,
+    native_functions: HashMap<String, native::NativeFunctionInfo>,
     native_constants: HashMap<String, Value>,
+    imported_modules: Vec<String>,
 }
 
 impl Interpreter {
@@ -32,6 +33,7 @@ impl Interpreter {
             functions: HashMap::new(),
             native_functions: HashMap::new(),
             native_constants: HashMap::new(),
+            imported_modules: Vec::new(),
         }
     }
 
@@ -41,14 +43,14 @@ impl Interpreter {
             if let Statement::Import { modules } = stmt {
                 for module_import in modules {
                     if let Some(module) = get_module(&module_import.name) {
-                        let mut funcs = module.functions;
+                        self.imported_modules.push(module_import.name.clone());
 
+                        let mut funcs = module.functions;
                         if let Some(imported_funcs) = &module_import.functions {
                             funcs.retain(|k, _| imported_funcs.iter().any(|f| f == k));
                         }
-
-                        for (name, func) in funcs {
-                            self.native_functions.insert(name.to_string(), func);
+                        for (name, info) in funcs {
+                            self.native_functions.insert(name.to_string(), info);
                         }
 
                         let mut consts = module.constants;
@@ -64,7 +66,6 @@ impl Interpreter {
                 }
             }
         }
-
         // Pre-pass: register every function declaration before executing
         // anything, so forward references and recursion both work
         // regardless of declaration order.
@@ -287,12 +288,12 @@ impl Interpreter {
         }
 
         // Fall back to native functions
-        if let Some(native_func) = self.native_functions.get(name).cloned() {
+        if let Some(native_info) = self.native_functions.get(name).cloned() {
             let mut arg_values = Vec::with_capacity(arguments.len());
             for arg in arguments {
                 arg_values.push(self.evaluate_expression(arg)?);
             }
-            return native_func(&arg_values);
+            return (native_info.func)(&arg_values);
         }
 
         Err(format!("Undefined function: {}", name))
@@ -304,7 +305,11 @@ impl Interpreter {
             Expression::String(s) => Ok(Value::String(s.clone())),
             Expression::Boolean(b) => Ok(Value::Boolean(*b)),
             Expression::Identifier(name) => {
-                // Check if it's a constant first
+                if self.imported_modules.contains(name) {
+                    if let Some(module) = native::get_module(name) {
+                        return Ok(Value::Array(module.describe()));
+                    }
+                }
                 if let Some(value) = self.native_constants.get(name) {
                     Ok(value.clone())
                 } else {
