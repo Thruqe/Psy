@@ -1,0 +1,5 @@
+    IMPORT _MATH
+
+    START
+    OUTPUT _MATH
+    END

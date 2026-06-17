@@ -194,6 +194,76 @@ fn math_module() -> NativeModule {
             arity: Arity::AtLeast(1),
         },
     );
+    functions.insert(
+        "GCD",
+        NativeFunctionInfo {
+            func: pseudocode_math::gcd,
+            arity: Arity::Exact(2),
+        },
+    );
+    functions.insert(
+        "LCM",
+        NativeFunctionInfo {
+            func: pseudocode_math::lcm,
+            arity: Arity::Exact(2),
+        },
+    );
+    functions.insert(
+        "IS_PRIME",
+        NativeFunctionInfo {
+            func: pseudocode_math::is_prime,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "MATRIX_ADD",
+        NativeFunctionInfo {
+            func: pseudocode_math::matrix_add,
+            arity: Arity::AtLeast(2),
+        },
+    );
+    functions.insert(
+        "MATRIX_MULTIPLY",
+        NativeFunctionInfo {
+            func: pseudocode_math::matrix_multiply,
+            arity: Arity::AtLeast(2),
+        },
+    );
+    functions.insert(
+        "MATRIX_TRANSPOSE",
+        NativeFunctionInfo {
+            func: pseudocode_math::matrix_transpose,
+            arity: Arity::AtLeast(1),
+        },
+    );
+    functions.insert(
+        "MATRIX_DETERMINANT",
+        NativeFunctionInfo {
+            func: pseudocode_math::matrix_determinant,
+            arity: Arity::AtLeast(1),
+        },
+    );
+    functions.insert(
+        "MATRIX_INVERSE",
+        NativeFunctionInfo {
+            func: pseudocode_math::matrix_inverse,
+            arity: Arity::AtLeast(1),
+        },
+    );
+    functions.insert(
+        "DOT",
+        NativeFunctionInfo {
+            func: pseudocode_math::dot,
+            arity: Arity::Exact(2),
+        },
+    );
+    functions.insert(
+        "CROSS",
+        NativeFunctionInfo {
+            func: pseudocode_math::cross,
+            arity: Arity::Exact(2),
+        },
+    );
 
     let mut constants: HashMap<&'static str, Value> = HashMap::new();
     constants.insert("PI", pseudocode_math::pi());

@@ -1,8 +1,11 @@
 mod abs;
+mod algebra;
 mod ceil;
 mod constants;
 mod cos;
 mod floor;
+mod matrix;
+mod matrix_ops;
 mod max;
 mod mean;
 mod median;
@@ -17,13 +20,18 @@ mod stddev;
 mod sum;
 mod tan;
 mod variance;
+mod vector_ops;
 
 pub use abs::abs;
+pub use algebra::{gcd, is_prime, lcm};
 pub use ceil::ceil;
 pub use constants::e;
 pub use constants::pi;
 pub use cos::cos;
 pub use floor::floor;
+pub use matrix_ops::{
+    matrix_add, matrix_determinant, matrix_inverse, matrix_multiply, matrix_transpose,
+};
 pub use max::max;
 pub use mean::mean;
 pub use median::median;
@@ -38,6 +46,7 @@ pub use stddev::stddev;
 pub use sum::sum;
 pub use tan::tan;
 pub use variance::variance;
+pub use vector_ops::{cross, dot};
 
 use pseudocode_types::Value;
 
