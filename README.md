@@ -1,6 +1,14 @@
 # Pseudocode Interpreter (psc)
 
-A Rust-based interpreter for executing pseudocode written in a custom educational language. This interpreter lexes, parses, and evaluates pseudocode programs, making it ideal for learning programming concepts and algorithm visualization.
+A super simple and fast interpreter for executing pseudocode written in a custom educational language. This interpreter lexes, parses, and evaluates pseudocode programs, making it ideal for learning programming concepts and algorithm visualization.
+
+[**_Core System_**](./core/)
+
+[**_Syntax Checker_**](./checker/)
+
+[**_Language Server_**](./lsp/)
+
+[**_Native Modules_**](./modules/)
 
 ## Features
 
@@ -15,9 +23,9 @@ A Rust-based interpreter for executing pseudocode written in a custom educationa
   - Logical operators and comparisons
 - **Debugging Support**: Built-in debug mode for step-by-step execution
 - **Clear Error Messages**: Informative syntax and runtime error reporting
-- **Educational Focus**: Designed for teaching programming concepts
+- **Educational**: Designed for teaching programming concepts
 
-## Language Syntax
+## Language Syntax Examples
 
 ### Variables
 
@@ -75,3 +83,13 @@ RETURN n * factorial(n - 1)
 ENDIF
 ENDFUNCTION
 ```
+
+Here's the simplified version:
+
+## Contributing
+
+Contributions are welcome! Feel free to open issues, submit pull requests, or suggest improvements.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

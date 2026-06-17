@@ -46,6 +46,28 @@ IMPORT _MATH[SIN, COS, TAN]
 | `FLOOR(x)` | Rounds down to nearest integer | `FLOOR(3.7)` | `3`    |
 | `CEIL(x)`  | Rounds up to nearest integer   | `CEIL(3.2)`  | `4`    |
 
+### Statistical Functions
+
+| Function        | Description               | Example                   | Result               |
+| --------------- | ------------------------- | ------------------------- | -------------------- |
+| `MEAN(...)`     | Arithmetic mean (average) | `MEAN(1, 2, 3, 4, 5)`     | `3`                  |
+| `MEDIAN(...)`   | Middle value              | `MEDIAN(1, 2, 3, 4, 5)`   | `3`                  |
+| `MODE(...)`     | Most frequent value(s)    | `MODE(1, 2, 2, 3, 4)`     | `2`                  |
+| `VARIANCE(...)` | Variance of data set      | `VARIANCE(1, 2, 3, 4, 5)` | `2`                  |
+| `STDDEV(...)`   | Standard deviation        | `STDDEV(1, 2, 3, 4, 5)`   | `1.4142135623730951` |
+| `MIN(...)`      | Minimum value             | `MIN(1, 2, 3, 4, 5)`      | `1`                  |
+| `MAX(...)`      | Maximum value             | `MAX(1, 2, 3, 4, 5)`      | `5`                  |
+| `SUM(...)`      | Sum of values             | `SUM(1, 2, 3, 4, 5)`      | `15`                 |
+| `PRODUCT(...)`  | Product of values         | `PRODUCT(1, 2, 3, 4, 5)`  | `120`                |
+
+**Note:** All statistical functions accept both individual numbers and arrays. For example:
+
+```pseudocode
+MEAN(1, 2, 3, 4, 5)     // Returns 3
+MEAN(data_array)         // Returns mean of array elements
+MEAN(1, 2, data_array)   // Mixed input is also supported
+```
+
 ## Available Constants
 
 | Constant | Description    | Value               |
@@ -153,35 +175,76 @@ END
 ### Statistical Calculations
 
 ```pseudocode
-IMPORT _MATH[POW, SQRT, ABS, ROUND]
+IMPORT _MATH[MEAN, MEDIAN, MODE, VARIANCE, STDDEV, MIN, MAX, SUM, PRODUCT]
 START
 
-    // Calculate standard deviation
-    DECLARE ARRAY data[5]
+    // Create a data set
+    DECLARE ARRAY data[7]
     data[0] = 2
     data[1] = 4
     data[2] = 6
     data[3] = 8
     data[4] = 10
+    data[5] = 12
+    data[6] = 14
 
-    // Calculate mean
-    sum = 0
-    FOR i = 0 TO 4
-        sum = sum + data[i]
-    ENDFOR
-    mean = sum / 5
+    OUTPUT "Data: [2, 4, 6, 8, 10, 12, 14]"
+    OUTPUT "Sum: ", SUM(data)
+    OUTPUT "Product: ", PRODUCT(2, 4, 6)
+    OUTPUT "Mean: ", MEAN(data)
+    OUTPUT "Median: ", MEDIAN(data)
+    OUTPUT "Min: ", MIN(data)
+    OUTPUT "Max: ", MAX(data)
+    OUTPUT "Variance: ", VARIANCE(data)
+    OUTPUT "Standard Deviation: ", STDDEV(data)
 
-    // Calculate variance
-    sum_sq_diff = 0
-    FOR i = 0 TO 4
-        diff = data[i] - mean
-        sum_sq_diff = sum_sq_diff + POW(diff, 2)
-    ENDFOR
-    variance = sum_sq_diff / 5
-    std_dev = SQRT(variance)
+    // Mode example with repeated values
+    DECLARE ARRAY scores[6]
+    scores[0] = 85
+    scores[1] = 90
+    scores[2] = 85
+    scores[3] = 95
+    scores[4] = 90
+    scores[5] = 85
 
-    OUTPUT "Mean: ", mean
-    OUTPUT "Standard Deviation: ", ROUND(std_dev * 100) / 100
+    OUTPUT "Scores: [85, 90, 85, 95, 90, 85]"
+    OUTPUT "Mode: ", MODE(scores)
+
+END
+```
+
+### Data Analysis Example
+
+```pseudocode
+IMPORT _MATH[MEAN, MEDIAN, MODE, VARIANCE, STDDEV, MIN, MAX]
+START
+
+    // Analyze test scores
+    DECLARE ARRAY scores[10]
+    scores[0] = 85
+    scores[1] = 92
+    scores[2] = 78
+    scores[3] = 95
+    scores[4] = 88
+    scores[5] = 76
+    scores[6] = 91
+    scores[7] = 84
+    scores[8] = 97
+    scores[9] = 89
+
+    OUTPUT "--- Test Score Analysis ---"
+    OUTPUT "Scores: [85, 92, 78, 95, 88, 76, 91, 84, 97, 89]"
+    OUTPUT "Mean: ", MEAN(scores)
+    OUTPUT "Median: ", MEDIAN(scores)
+    OUTPUT "Range: ", MIN(scores), " - ", MAX(scores)
+    OUTPUT "Variance: ", VARIANCE(scores)
+    OUTPUT "Std Dev: ", STDDEV(scores)
+
+    // Add a new score and recalculate
+    scores[9] = 100
+    OUTPUT "Updated score: 100"
+    OUTPUT "New Mean: ", MEAN(scores)
+    OUTPUT "New Std Dev: ", STDDEV(scores)
 
 END
 ```
@@ -204,6 +267,10 @@ START
     result = SQRT(-1)        // Error: SQRT of negative number
     result = TAN(90)         // Undefined result (near infinity)
 
+    // Statistical function errors
+    result = MEAN()          // Error: MEAN expects at least 1 argument
+    result = MEAN("text")    // Error: MEAN expects numbers or arrays of numbers
+
 END
 ```
 
@@ -213,12 +280,15 @@ END
 - Floating-point precision may result in values like `0.5000000000000001` instead of exactly `0.5`
 - Constants `PI` and `E` are available for use in calculations
 - The module supports both integer and floating-point inputs
+- Statistical functions accept both individual arguments and arrays
+- `MODE` returns an array if there are multiple modes, or a single number if there's one mode
 
 ## Performance Considerations
 
 - All functions are implemented as native Rust functions for optimal performance
 - Input validation is performed on all functions to prevent runtime errors
 - Memory-efficient operation with no unnecessary allocations
+- Statistical functions handle large datasets efficiently
 
 ## Contributing
 
@@ -227,7 +297,7 @@ To add new functions to the math module:
 1. Create a new file in `modules/math/src/` (e.g., `new_func.rs`)
 2. Implement the function with signature: `pub fn new_func(args: &[Value]) -> Result<Value, String>`
 3. Register the function in `modules/math/src/lib.rs`
-4. Add the function to the `_MATH` module in [Here](../../core/src/interpreter/native.rs)
+4. Add the function to the `_MATH` module in [core/src/interpreter/native.rs](../../core/src/interpreter/native.rs)
 
 ## License
 
@@ -237,3 +307,7 @@ This module is part of the Pseudocode Interpreter project and is licensed under 
 
 - [Pseudocode Interpreter Documentation](../../README.md)
 - [Other Built-in Modules](../../modules/)
+
+```
+
+```
