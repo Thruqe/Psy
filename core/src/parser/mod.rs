@@ -200,6 +200,8 @@ impl Parser {
             self.parse_const_declaration()
         } else if self.check(Token::Static) {
             self.parse_static_declaration()
+        } else if self.peek_is_call() {
+            self.parse_expression_statement()
         } else {
             let token = self.current();
             let err = self.error_at_current(&format!(
@@ -209,6 +211,12 @@ impl Parser {
             self.advance();
             Err(err)
         }
+    }
+
+    fn parse_expression_statement(&mut self) -> Result<Statement, ParseError> {
+        let expr = self.parse_expression()?;
+        self.skip_newlines();
+        Ok(Statement::ExpressionStatement(expr))
     }
 
     fn parse_input(&mut self) -> Result<Statement, ParseError> {
@@ -365,7 +373,7 @@ impl Parser {
             expression: expr,
         })
     }
-    
+
     fn parse_if(&mut self) -> Result<Statement, ParseError> {
         self.advance(); // Consume IF
 
@@ -878,6 +886,14 @@ impl Parser {
         if self.position + 1 < self.tokens.len() {
             if let Token::Identifier(_) = self.current() {
                 return self.tokens[self.position + 1].token == Token::LeftBracket;
+            }
+        }
+        false
+    }
+    fn peek_is_call(&self) -> bool {
+        if self.position + 1 < self.tokens.len() {
+            if let Token::Identifier(_) = self.current() {
+                return self.tokens[self.position + 1].token == Token::LeftParen;
             }
         }
         false

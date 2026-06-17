@@ -134,6 +134,11 @@ impl Formatter {
                 writeln!(self.output, "{}STATIC {} = {}", indent, name, expr_str)
                     .map_err(|e| e.to_string())?;
             }
+            Statement::ExpressionStatement(expr) => {
+                let indent = " ".repeat(self.indent_level * self.indent_size);
+                let expr_str = self.format_expression(expr)?;
+                writeln!(self.output, "{}{}", indent, expr_str).map_err(|e| e.to_string())?;
+            }
             Statement::If {
                 condition,
                 then_branch,

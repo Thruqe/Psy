@@ -57,6 +57,7 @@ pub enum Statement {
         name: String,
         expression: Expression,
     },
+    ExpressionStatement(Expression),
     Return {
         value: Option<Expression>,
     },

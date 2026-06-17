@@ -25,6 +25,7 @@ pub struct Interpreter {
     native_constants: HashMap<String, Value>,
     imported_modules: Vec<String>,
     statics: HashMap<(String, String), Value>,
+    static_scope_stack: Vec<(String, Vec<String>)>,
 }
 
 impl Interpreter {
@@ -36,6 +37,7 @@ impl Interpreter {
             native_constants: HashMap::new(),
             imported_modules: Vec::new(),
             statics: HashMap::new(),
+            static_scope_stack: Vec::new(),
         }
     }
 
@@ -98,6 +100,18 @@ impl Interpreter {
         self.environment.print_state();
     }
 
+    /// Returns the persistent-storage key for `name` if it refers to a
+    /// STATIC variable in the function currently executing (the top of
+    /// the static scope stack), or None if it's an ordinary variable.
+    fn current_static_key(&self, name: &str) -> Option<(String, String)> {
+        let (func_name, static_names) = self.static_scope_stack.last()?;
+        if static_names.iter().any(|n| n == name) {
+            Some((func_name.clone(), name.to_string()))
+        } else {
+            None
+        }
+    }
+
     fn execute_statement(&mut self, stmt: &Statement) -> Result<ControlFlow, String> {
         match stmt {
             Statement::Import { .. } => {
@@ -109,7 +123,11 @@ impl Interpreter {
                 expression,
             } => {
                 let value = self.evaluate_expression(expression)?;
-                self.environment.set(variable, value)?;
+                if let Some(key) = self.current_static_key(variable) {
+                    self.statics.insert(key, value);
+                } else {
+                    self.environment.set(variable, value)?;
+                }
                 Ok(ControlFlow::Normal)
             }
             Statement::Input { variables } => {
@@ -145,9 +163,16 @@ impl Interpreter {
                 println!();
                 Ok(ControlFlow::Normal)
             }
-            Statement::StaticDeclaration { name, expression } => {
-                let value = self.evaluate_expression(expression)?;
-                self.environment.set(name, value)?;
+            Statement::StaticDeclaration { .. } => {
+                // All real work (init-once-ever, plus every read/write of
+                // this name for the rest of the call) is handled by the
+                // static scope stack set up in call_function, and by the
+                // redirection in Assign/Identifier above. This statement
+                // is purely positional in the AST by the time we get here.
+                Ok(ControlFlow::Normal)
+            }
+            Statement::ExpressionStatement(expr) => {
+                self.evaluate_expression(expr)?;
                 Ok(ControlFlow::Normal)
             }
             Statement::If {
@@ -283,35 +308,36 @@ impl Interpreter {
                 call_env.set(param, value)?;
             }
 
-            // Find every STATIC declared anywhere in this function's body,
-            // initialize each one's persistent slot the first time it's
-            // ever seen, then copy the current persistent value into this
-            // call's local environment so normal variable access just works.
+            // Collect every STATIC name declared anywhere in this
+            // function's body (including nested IF/FOR/WHILE branches).
+            // Statics are never copied into call_env — they live
+            // permanently in self.statics and are read/written directly
+            // during execution via current_static_key, so the same slot
+            // is shared correctly across recursive calls.
             let mut static_decls = Vec::new();
             Self::collect_static_names(&func.body, &mut static_decls);
-
-            for (static_name, initializer) in &static_decls {
-                let key = (name.to_string(), static_name.clone());
-                if !self.statics.contains_key(&key) {
-                    let initial_value = self.evaluate_expression_in(initializer, &call_env)?;
-                    self.statics.insert(key.clone(), initial_value);
-                }
-                let persisted = self.statics.get(&key).cloned().unwrap_or(Value::Undefined);
-                call_env.set(static_name, persisted)?;
-            }
+            let static_names: Vec<String> = static_decls.iter().map(|(n, _)| n.clone()).collect();
 
             let caller_env = std::mem::replace(&mut self.environment, call_env);
 
-            let result = self.execute_block(&func.body);
-
-            // Sync each static's possibly-mutated value back into persistent
-            // storage before restoring the caller's environment.
-            for (static_name, _) in &static_decls {
+            // Initialize each static's persistent slot the first time
+            // it's ever seen, now that self.environment is the call's
+            // own environment (so the initializer can reference
+            // parameters if it needs to).
+            for (static_name, initializer) in &static_decls {
                 let key = (name.to_string(), static_name.clone());
-                let current_value = self.environment.get(static_name);
-                self.statics.insert(key, current_value);
+                if !self.statics.contains_key(&key) {
+                    let initial_value = self.evaluate_expression(initializer)?;
+                    self.statics.insert(key, initial_value);
+                }
             }
 
+            self.static_scope_stack
+                .push((name.to_string(), static_names));
+
+            let result = self.execute_block(&func.body);
+
+            self.static_scope_stack.pop();
             self.environment = caller_env;
 
             return match result? {
@@ -329,17 +355,6 @@ impl Interpreter {
         }
 
         Err(format!("Undefined function: {}", name))
-    }
-
-    fn evaluate_expression_in(
-        &mut self,
-        expr: &Expression,
-        env: &Environment,
-    ) -> Result<Value, String> {
-        let saved = std::mem::replace(&mut self.environment, env.clone());
-        let result = self.evaluate_expression(expr);
-        self.environment = saved;
-        result
     }
 
     /// Recursively walks a function body (including nested IF/FOR/WHILE
@@ -382,6 +397,9 @@ impl Interpreter {
             Expression::String(s) => Ok(Value::String(s.clone())),
             Expression::Boolean(b) => Ok(Value::Boolean(*b)),
             Expression::Identifier(name) => {
+                if let Some(key) = self.current_static_key(name) {
+                    return Ok(self.statics.get(&key).cloned().unwrap_or(Value::Undefined));
+                }
                 if self.imported_modules.contains(name) {
                     if let Some(module) = native::get_module(name) {
                         return Ok(Value::Array(module.describe()));
