@@ -1,0 +1,7 @@
+IMPORT _MATH[SIN, PI]
+
+START
+    OUTPUT PI
+    PI = 3
+    OUTPUT PI
+END

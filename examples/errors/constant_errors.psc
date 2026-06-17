@@ -1,0 +1,13 @@
+IMPORT _MATH[SIN]
+
+START
+    CONST MAX_SCORE = 100
+    CONST GREETING = "Hello"
+
+    OUTPUT GREETING
+    OUTPUT MAX_SCORE
+
+    // Reassigning a CONST should fail at runtime
+    MAX_SCORE = 50
+    OUTPUT MAX_SCORE
+END

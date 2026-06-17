@@ -1,20 +1,41 @@
 pub use pseudocode_types::Value;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
+#[derive(Clone)]
 pub struct Environment {
     variables: HashMap<String, Value>,
+    constants: HashSet<String>,
 }
 
 impl Environment {
     pub fn new() -> Self {
         Environment {
             variables: HashMap::new(),
+            constants: HashSet::new(),
         }
     }
 
-    pub fn set(&mut self, name: &str, value: Value) {
+    /// Sets a variable's value. Returns an error if `name` was previously
+    /// declared as a CONST, since consts are assign-once.
+    pub fn set(&mut self, name: &str, value: Value) -> Result<(), String> {
+        if self.constants.contains(name) {
+            return Err(format!("Cannot reassign constant: {}", name));
+        }
         self.variables.insert(name.to_string(), value);
+        Ok(())
+    }
+
+    /// Declares a CONST: sets its value and marks the name as immutable
+    /// for the lifetime of this environment. Errors if the name was
+    /// already declared as a const (re-declaring is also disallowed).
+    pub fn set_const(&mut self, name: &str, value: Value) -> Result<(), String> {
+        if self.constants.contains(name) {
+            return Err(format!("Constant already declared: {}", name));
+        }
+        self.variables.insert(name.to_string(), value);
+        self.constants.insert(name.to_string());
+        Ok(())
     }
 
     pub fn get(&self, name: &str) -> Value {

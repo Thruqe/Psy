@@ -196,6 +196,10 @@ impl Parser {
             self.parse_function_declaration()
         } else if self.check(Token::Return) {
             self.parse_return()
+        } else if self.check(Token::Const) {
+            self.parse_const_declaration()
+        } else if self.check(Token::Static) {
+            self.parse_static_declaration()
         } else {
             let token = self.current();
             let err = self.error_at_current(&format!(
@@ -314,6 +318,54 @@ impl Parser {
         })
     }
 
+    fn parse_const_declaration(&mut self) -> Result<Statement, ParseError> {
+        self.advance(); // Consume CONST
+
+        let name = if let Token::Identifier(name) = self.current() {
+            name.clone()
+        } else {
+            return Err(self.error_at_current("Expected identifier after CONST"));
+        };
+        self.advance();
+
+        if !self.check(Token::Assign) {
+            return Err(self.error_at_current("Expected = after CONST name"));
+        }
+        self.advance();
+
+        let expr = self.parse_expression()?;
+        self.skip_newlines();
+
+        Ok(Statement::ConstDeclaration {
+            name,
+            expression: expr,
+        })
+    }
+
+    fn parse_static_declaration(&mut self) -> Result<Statement, ParseError> {
+        self.advance(); // Consume STATIC
+
+        let name = if let Token::Identifier(name) = self.current() {
+            name.clone()
+        } else {
+            return Err(self.error_at_current("Expected identifier after STATIC"));
+        };
+        self.advance();
+
+        if !self.check(Token::Assign) {
+            return Err(self.error_at_current("Expected = after STATIC name"));
+        }
+        self.advance();
+
+        let expr = self.parse_expression()?;
+        self.skip_newlines();
+
+        Ok(Statement::StaticDeclaration {
+            name,
+            expression: expr,
+        })
+    }
+    
     fn parse_if(&mut self) -> Result<Statement, ParseError> {
         self.advance(); // Consume IF
 

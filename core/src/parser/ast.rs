@@ -53,6 +53,10 @@ pub enum Statement {
         name: String,
         expression: Expression,
     },
+    StaticDeclaration {
+        name: String,
+        expression: Expression,
+    },
     Return {
         value: Option<Expression>,
     },

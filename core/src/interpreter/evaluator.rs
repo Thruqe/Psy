@@ -24,6 +24,7 @@ pub struct Interpreter {
     native_functions: HashMap<String, native::NativeFunctionInfo>,
     native_constants: HashMap<String, Value>,
     imported_modules: Vec<String>,
+    statics: HashMap<(String, String), Value>,
 }
 
 impl Interpreter {
@@ -34,6 +35,7 @@ impl Interpreter {
             native_functions: HashMap::new(),
             native_constants: HashMap::new(),
             imported_modules: Vec::new(),
+            statics: HashMap::new(),
         }
     }
 
@@ -58,7 +60,7 @@ impl Interpreter {
                             consts.retain(|k, _| imported_funcs.iter().any(|f| f == k));
                         }
                         for (name, value) in consts {
-                            self.environment.set(&name, value);
+                            self.environment.set_const(&name, value)?;
                         }
                     } else {
                         return Err(format!("Unknown module: {}", module_import.name));
@@ -107,7 +109,7 @@ impl Interpreter {
                 expression,
             } => {
                 let value = self.evaluate_expression(expression)?;
-                self.environment.set(variable, value);
+                self.environment.set(variable, value)?;
                 Ok(ControlFlow::Normal)
             }
             Statement::Input { variables } => {
@@ -120,9 +122,10 @@ impl Interpreter {
                     let input = input.trim();
 
                     if let Ok(num) = input.parse::<f64>() {
-                        self.environment.set(var, Value::Number(num));
+                        self.environment.set(var, Value::Number(num))?;
                     } else {
-                        self.environment.set(var, Value::String(input.to_string()));
+                        self.environment
+                            .set(var, Value::String(input.to_string()))?;
                     }
                 }
                 Ok(ControlFlow::Normal)
@@ -140,6 +143,11 @@ impl Interpreter {
                     }
                 }
                 println!();
+                Ok(ControlFlow::Normal)
+            }
+            Statement::StaticDeclaration { name, expression } => {
+                let value = self.evaluate_expression(expression)?;
+                self.environment.set(name, value)?;
                 Ok(ControlFlow::Normal)
             }
             Statement::If {
@@ -182,7 +190,7 @@ impl Interpreter {
                     let end_int = e as i32;
 
                     for i in start_int..=end_int {
-                        self.environment.set(variable, Value::Number(i as f64));
+                        self.environment.set(variable, Value::Number(i as f64))?;
                         match self.execute_block(body)? {
                             ControlFlow::Normal => {}
                             ControlFlow::Return(v) => return Ok(ControlFlow::Return(v)),
@@ -207,9 +215,9 @@ impl Interpreter {
                 }
                 Ok(ControlFlow::Normal)
             }
-            Statement::ConstDeclaration { .. } => {
-                // Real const-tracking lands in stage 2 — this is a placeholder
-                // so the build stays green while the parser rule is written.
+            Statement::ConstDeclaration { name, expression } => {
+                let value = self.evaluate_expression(expression)?;
+                self.environment.set_const(name, value)?;
                 Ok(ControlFlow::Normal)
             }
             Statement::DeclareArray { name, size } => {
@@ -255,8 +263,6 @@ impl Interpreter {
     }
 
     fn call_function(&mut self, name: &str, arguments: &[Expression]) -> Result<Value, String> {
-        // Check user-defined functions first — they take priority over
-        // imported native functions if names collide.
         if let Some(func) = self.functions.get(name).cloned() {
             if arguments.len() != func.parameters.len() {
                 return Err(format!(
@@ -274,11 +280,38 @@ impl Interpreter {
 
             let mut call_env = Environment::new();
             for (param, value) in func.parameters.iter().zip(arg_values.into_iter()) {
-                call_env.set(param, value);
+                call_env.set(param, value)?;
+            }
+
+            // Find every STATIC declared anywhere in this function's body,
+            // initialize each one's persistent slot the first time it's
+            // ever seen, then copy the current persistent value into this
+            // call's local environment so normal variable access just works.
+            let mut static_decls = Vec::new();
+            Self::collect_static_names(&func.body, &mut static_decls);
+
+            for (static_name, initializer) in &static_decls {
+                let key = (name.to_string(), static_name.clone());
+                if !self.statics.contains_key(&key) {
+                    let initial_value = self.evaluate_expression_in(initializer, &call_env)?;
+                    self.statics.insert(key.clone(), initial_value);
+                }
+                let persisted = self.statics.get(&key).cloned().unwrap_or(Value::Undefined);
+                call_env.set(static_name, persisted)?;
             }
 
             let caller_env = std::mem::replace(&mut self.environment, call_env);
+
             let result = self.execute_block(&func.body);
+
+            // Sync each static's possibly-mutated value back into persistent
+            // storage before restoring the caller's environment.
+            for (static_name, _) in &static_decls {
+                let key = (name.to_string(), static_name.clone());
+                let current_value = self.environment.get(static_name);
+                self.statics.insert(key, current_value);
+            }
+
             self.environment = caller_env;
 
             return match result? {
@@ -287,7 +320,6 @@ impl Interpreter {
             };
         }
 
-        // Fall back to native functions
         if let Some(native_info) = self.native_functions.get(name).cloned() {
             let mut arg_values = Vec::with_capacity(arguments.len());
             for arg in arguments {
@@ -297,6 +329,51 @@ impl Interpreter {
         }
 
         Err(format!("Undefined function: {}", name))
+    }
+
+    fn evaluate_expression_in(
+        &mut self,
+        expr: &Expression,
+        env: &Environment,
+    ) -> Result<Value, String> {
+        let saved = std::mem::replace(&mut self.environment, env.clone());
+        let result = self.evaluate_expression(expr);
+        self.environment = saved;
+        result
+    }
+
+    /// Recursively walks a function body (including nested IF/FOR/WHILE
+    /// branches) collecting every STATIC declaration found, by name. This
+    /// mirrors C's rule that a static can be lexically nested inside a
+    /// conditional or loop, while its storage is fixed for the whole
+    /// function regardless of whether that branch executes on a given call.
+    fn collect_static_names(body: &[Statement], names: &mut Vec<(String, Expression)>) {
+        for stmt in body {
+            match stmt {
+                Statement::StaticDeclaration { name, expression } => {
+                    names.push((name.clone(), expression.clone()));
+                }
+                Statement::If {
+                    then_branch,
+                    else_if_branches,
+                    else_branch,
+                    ..
+                } => {
+                    Self::collect_static_names(then_branch, names);
+                    for (_, branch) in else_if_branches {
+                        Self::collect_static_names(branch, names);
+                    }
+                    Self::collect_static_names(else_branch, names);
+                }
+                Statement::ForLoop { body, .. } => {
+                    Self::collect_static_names(body, names);
+                }
+                Statement::WhileLoop { body, .. } => {
+                    Self::collect_static_names(body, names);
+                }
+                _ => {}
+            }
+        }
     }
 
     fn evaluate_expression(&mut self, expr: &Expression) -> Result<Value, String> {
