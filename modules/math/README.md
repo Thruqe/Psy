@@ -60,6 +60,22 @@ IMPORT _MATH[SIN, COS, TAN]
 | `SUM(...)`      | Sum of values             | `SUM(1, 2, 3, 4, 5)`      | `15`                 |
 | `PRODUCT(...)`  | Product of values         | `PRODUCT(1, 2, 3, 4, 5)`  | `120`                |
 
+### Matrix Operations
+
+| Function                     | Description       | Example                   | Result          |
+| ---------------------------- | ----------------- | ------------------------- | --------------- |
+| `MATRIX(rows, cols, values)` | Create a matrix   | `MATRIX(2, 2, [1,2,3,4])` | `[[1,2],[3,4]]` |
+| `MATRIX_ADD(A, B)`           | Add two matrices  | `MATRIX_ADD(A, B)`        | Matrix sum      |
+| `MATRIX_MULTIPLY(A, B)`      | Multiply matrices | `MATRIX_MULTIPLY(A, B)`   | Matrix product  |
+
+### Vector Operations
+
+| Function               | Description     | Example                          | Result    |
+| ---------------------- | --------------- | -------------------------------- | --------- |
+| `VECTOR(...)`          | Create a vector | `VECTOR(1, 2, 3)`                | `[1,2,3]` |
+| `VECTOR_DOT(v1, v2)`   | Dot product     | `VECTOR_DOT([1,2], [3,4])`       | `11`      |
+| `VECTOR_CROSS(v1, v2)` | Cross product   | `VECTOR_CROSS([1,0,0], [0,1,0])` | `[0,0,1]` |
+
 **Note:** All statistical functions accept both individual numbers and arrays. For example:
 
 ```pseudocode
@@ -74,6 +90,20 @@ MEAN(1, 2, data_array)   // Mixed input is also supported
 | -------- | -------------- | ------------------- |
 | `PI`     | Pi (π)         | `3.141592653589793` |
 | `E`      | Euler's number | `2.718281828459045` |
+
+## Function Signatures
+
+### Trigonometry
+
+- `SIN(number angle) -> number` - Sine of angle in degrees
+- `COS(number angle) -> number` - Cosine of angle in degrees
+- `TAN(number angle) -> number` - Tangent of angle in degrees
+
+### Statistics
+
+- `MEAN(number|array ...) -> number` - Mean of all arguments
+- `MEDIAN(number|array ...) -> number` - Median value
+- `MODE(number|array ...) -> number|array` - Most frequent value(s)
 
 ## Examples
 
@@ -249,6 +279,17 @@ START
 END
 ```
 
+## Trigonometric identity verification:
+
+````pseudocode
+IMPORT _MATH[SIN, COS, TAN, PI]
+START
+    angle = 45
+    // Verify sin²θ + cos²θ = 1
+    identity = POW(SIN(angle), 2) + POW(COS(angle), 2)
+    OUTPUT "sin²(45°) + cos²(45°) = ", identity  // Should output 1
+END
+
 ## Error Handling
 
 The math module provides clear error messages when functions are used incorrectly:
@@ -272,7 +313,7 @@ START
     result = MEAN("text")    // Error: MEAN expects numbers or arrays of numbers
 
 END
-```
+````
 
 ## Notes
 
@@ -307,7 +348,3 @@ This module is part of the Pseudocode Interpreter project and is licensed under 
 
 - [Pseudocode Interpreter Documentation](../../README.md)
 - [Other Built-in Modules](../../modules/)
-
-```
-
-```
