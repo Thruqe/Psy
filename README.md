@@ -19,8 +19,6 @@
   <a href="./modules/">Native Modules</a>
 </p>
 
----
-
 ## Features
 
 ### Core Interpreter Pipeline
@@ -59,13 +57,9 @@
 - **Language Server**: Provides IDE integration (autocomplete, diagnostics)
 - **Native Modules**: Extend functionality with external modules
 
----
-
 ## Contributing
 
 Contributions are welcome! Feel free to open issues, submit pull requests, or suggest improvements.
-
----
 
 ## License
 
