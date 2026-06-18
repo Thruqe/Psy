@@ -1,0 +1,51 @@
+{
+	"name": "pseudocode-lsp",
+	"displayName": "Pseudocode LSP",
+	"description": "Pseudocode Language Server Protocol extension",
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.103.0"
+	},
+	"categories": [
+		"Programming Languages"
+	],
+	"activationEvents": [
+		"onLanguage:pseudocode"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"languages": [
+			{
+				"id": "pseudocode",
+				"aliases": [
+					"Pseudocode",
+					"pseudocode"
+				],
+				"extensions": [
+					".psc"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "pseudocode",
+				"scopeName": "source.psc",
+				"path": "./syntaxes/pseudocode.tmLanguage.json"
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./"
+	},
+	"devDependencies": {
+		"@types/node": "^25.9.3",
+		"@types/vscode": "^1.103.0",
+		"typescript": "^6.0.3"
+	},
+	"dependencies": {
+		"vscode-languageclient": "^10.0.0-next.22"
+	}
+}

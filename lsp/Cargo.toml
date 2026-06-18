@@ -9,4 +9,5 @@ path = "src/main.rs"
 
 [dependencies]
 pseudocode-checker = { path = "../checker" }
-pseudocode-core = { path = "../core" }
+tower-lsp = "0.20"
+tokio = { version = "1", features = ["full"] }
