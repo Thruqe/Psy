@@ -82,7 +82,7 @@ fn main() {
         return;
     }
 
-    // Resolve and load sibling .psc files' PUB exports before running
+    // Resolve and load sibling .psy files' PUB exports before running
     // the entry file itself.
     let mut interpreter = Interpreter::new();
     match load_sibling_exports(filename) {
@@ -102,11 +102,9 @@ fn main() {
     let tokens = lexer.tokenize();
 
     if debug_mode {
-        println!("--- Tokens ---");
         for (i, token) in tokens.iter().enumerate() {
             println!("{:3}: {:?}", i, token);
         }
-        println!();
     }
     let mut parser = Parser::new(tokens);
     let (ast, parse_errors) = parser.parse();
@@ -115,9 +113,7 @@ fn main() {
         eprintln!("Parse error: {}", err);
     }
     if debug_mode {
-        println!("--- Abstract Syntax Tree ---");
         println!("{:#?}", ast);
-        println!();
     }
 
     match interpreter.run(&ast) {
@@ -134,7 +130,7 @@ fn main() {
     }
 }
 
-/// Scans the entry file's directory for sibling .psc files, runs each
+/// Scans the entry file's directory for sibling .psy files, runs each
 /// one in full isolation, collects their PUB exports, and returns the
 /// merged set — erroring hard if any sibling fails to parse, or if two
 /// siblings export a name that collides.
@@ -153,7 +149,7 @@ fn load_sibling_exports(
     for entry in read_dir {
         let entry = entry.map_err(|e| format!("Error reading directory entry: {}", e))?;
         let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("psc") {
+        if path.extension().and_then(|e| e.to_str()) != Some("psy") {
             continue;
         }
         if let Some(canonical) = &entry_canonical {

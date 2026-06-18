@@ -1,4 +1,4 @@
-use psy_checker::{Diagnostic as PscDiagnostic, Severity as PscSeverity};
+use psy_checker::{Diagnostic as PsyDiagnostic, Severity as PsySeverity};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -24,12 +24,6 @@ impl LanguageServer for Backend {
         })
     }
 
-    async fn initialized(&self, _: InitializedParams) {
-        self.client
-            .log_message(MessageType::INFO, "psy-lsp initialized")
-            .await;
-    }
-
     async fn shutdown(&self) -> Result<()> {
         Ok(())
     }
@@ -40,8 +34,6 @@ impl LanguageServer for Backend {
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        // We registered FULL sync, so the last change content_change
-        // entry contains the entire document text.
         if let Some(change) = params.content_changes.into_iter().last() {
             self.check_and_publish(params.text_document.uri, &change.text)
                 .await;
@@ -49,8 +41,6 @@ impl LanguageServer for Backend {
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
-        // Clear diagnostics when a file closes, so stale squiggles don't
-        // linger in the editor's problems panel.
         self.client
             .publish_diagnostics(params.text_document.uri, vec![], None)
             .await;
@@ -59,8 +49,8 @@ impl LanguageServer for Backend {
 
 impl Backend {
     async fn check_and_publish(&self, uri: Url, source: &str) {
-        let psc_diagnostics = psy_checker::check(source);
-        let lsp_diagnostics: Vec<Diagnostic> = psc_diagnostics
+        let psy_diagnostics = psy_checker::check(source);
+        let lsp_diagnostics: Vec<Diagnostic> = psy_diagnostics
             .iter()
             .map(|d| convert_diagnostic(d))
             .collect();
@@ -71,17 +61,13 @@ impl Backend {
     }
 }
 
-/// Converts one of our checker's Diagnostic structs into an LSP
-/// Diagnostic. Our line/column are 1-indexed (matching how editors and
-/// compilers traditionally report positions to humans); LSP positions
-/// are 0-indexed, so both need to be adjusted down by one.
-fn convert_diagnostic(d: &PscDiagnostic) -> Diagnostic {
+fn convert_diagnostic(d: &PsyDiagnostic) -> Diagnostic {
     let line = d.line.saturating_sub(1) as u32;
     let column = d.column.saturating_sub(1) as u32;
 
     let severity = match d.severity {
-        PscSeverity::Error => DiagnosticSeverity::ERROR,
-        PscSeverity::Warning => DiagnosticSeverity::WARNING,
+        PsySeverity::Error => DiagnosticSeverity::ERROR,
+        PsySeverity::Warning => DiagnosticSeverity::WARNING,
     };
 
     let mut message = d.message.clone();

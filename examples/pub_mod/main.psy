@@ -1,4 +1,4 @@
-# test.psc 
+# test.psy 
 START
     OUTPUT Hello
     OUTPUT square(7)

@@ -29,11 +29,11 @@
         "comments": {
             "patterns": [
                 {
-                    "name": "comment.line.double-slash.psc",
+                    "name": "comment.line.double-slash.psy",
                     "match": "//.*$"
                 },
                 {
-                    "name": "comment.block.psc",
+                    "name": "comment.block.psy",
                     "begin": "/\\*",
                     "end": "\\*/"
                 }
@@ -42,23 +42,23 @@
         "keywords": {
             "patterns": [
                 {
-                    "name": "keyword.control.psc",
+                    "name": "keyword.control.psy",
                     "match": "\\b(IF|ELSE|THEN|ENDIF|FOR|TO|ENDFOR|WHILE|ENDWHILE|REPEAT|UNTIL|CASE|ENDCASE|BREAK|CONTINUE|RETURN)\\b"
                 },
                 {
-                    "name": "keyword.other.psc",
+                    "name": "keyword.other.psy",
                     "match": "\\b(START|END|INPUT|OUTPUT|PRINT|READ|WRITE|OPEN|CLOSE)\\b"
                 },
                 {
-                    "name": "keyword.operator.logical.psc",
+                    "name": "keyword.operator.logical.psy",
                     "match": "\\b(AND|OR|NOT|XOR)\\b"
                 },
                 {
-                    "name": "storage.type.psc",
+                    "name": "storage.type.psy",
                     "match": "\\b(INTEGER|REAL|STRING|BOOLEAN|CHAR|ARRAY|LIST|DICTIONARY|MAP|SET|FUNCTION|PROCEDURE)\\b"
                 },
                 {
-                    "name": "constant.language.psc",
+                    "name": "constant.language.psy",
                     "match": "\\b(TRUE|FALSE|NULL|NIL|UNDEFINED)\\b"
                 }
             ]
@@ -66,15 +66,15 @@
         "operators": {
             "patterns": [
                 {
-                    "name": "keyword.operator.arithmetic.psc",
+                    "name": "keyword.operator.arithmetic.psy",
                     "match": "[+\\-*/%^]"
                 },
                 {
-                    "name": "keyword.operator.comparison.psc",
+                    "name": "keyword.operator.comparison.psy",
                     "match": "(=|==|!=|<>|<|>|<=|>=)"
                 },
                 {
-                    "name": "keyword.operator.assignment.psc",
+                    "name": "keyword.operator.assignment.psy",
                     "match": "="
                 }
             ]
@@ -82,15 +82,15 @@
         "numbers": {
             "patterns": [
                 {
-                    "name": "constant.numeric.integer.psc",
+                    "name": "constant.numeric.integer.psy",
                     "match": "\\b\\d+\\b"
                 },
                 {
-                    "name": "constant.numeric.float.psc",
+                    "name": "constant.numeric.float.psy",
                     "match": "\\b\\d+\\.\\d+\\b"
                 },
                 {
-                    "name": "constant.numeric.hex.psc",
+                    "name": "constant.numeric.hex.psy",
                     "match": "\\b0x[0-9A-Fa-f]+\\b"
                 }
             ]
@@ -98,23 +98,23 @@
         "strings": {
             "patterns": [
                 {
-                    "name": "string.quoted.double.psc",
+                    "name": "string.quoted.double.psy",
                     "begin": "\"",
                     "end": "\"",
                     "patterns": [
                         {
-                            "name": "constant.character.escape.psc",
+                            "name": "constant.character.escape.psy",
                             "match": "\\\\(n|t|r|\\\\|\"|')"
                         }
                     ]
                 },
                 {
-                    "name": "string.quoted.single.psc",
+                    "name": "string.quoted.single.psy",
                     "begin": "'",
                     "end": "'",
                     "patterns": [
                         {
-                            "name": "constant.character.escape.psc",
+                            "name": "constant.character.escape.psy",
                             "match": "\\\\(n|t|r|\\\\|\"|')"
                         }
                     ]
@@ -124,11 +124,11 @@
         "functions": {
             "patterns": [
                 {
-                    "name": "support.function.builtin.psc",
+                    "name": "support.function.builtin.psy",
                     "match": "\\b(INPUT|OUTPUT|PRINT|READ|WRITE|OPEN|CLOSE|LEN|LENGTH|SUBSTRING|MID|LEFT|RIGHT|TRIM|UPPER|LOWER|ASC|CHR|VAL|STR|RANDOM|INT|ABS|SQRT|SIN|COS|TAN|LOG|EXP)\\b"
                 },
                 {
-                    "name": "entity.name.function.psc",
+                    "name": "entity.name.function.psy",
                     "match": "(?<=FUNCTION\\s+)[a-zA-Z_][a-zA-Z0-9_]*(?=\\s*\\()"
                 }
             ]
@@ -136,11 +136,10 @@
         "variables": {
             "patterns": [
                 {
-                    "name": "variable.other.psc",
+                    "name": "variable.other.psy",
                     "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
                 }
             ]
         }
-    },
-    "scopeName": "source.psc"
+    }
 }

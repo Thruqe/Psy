@@ -4,10 +4,10 @@ version.workspace = true
 edition.workspace = true
 
 [[bin]]
-name = "psc-lsp"
+name = "psy-lsp"
 path = "src/main.rs"
 
 [dependencies]
 psy-checker = { path = "../checker" }
-tower-lsp = "0.20"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.52.3", features = ['full'] }
+tower-lsp = "0.20.0"

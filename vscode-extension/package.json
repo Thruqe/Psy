@@ -22,7 +22,7 @@
 					"psy"
 				],
 				"extensions": [
-					".psc"
+					".psy"
 				],
 				"configuration": "./language-configuration.json"
 			}
@@ -30,7 +30,7 @@
 		"grammars": [
 			{
 				"language": "psy",
-				"scopeName": "source.psc",
+				"scopeName": "source.psy",
 				"path": "./syntaxes/psy.tmLanguage.json"
 			}
 		]

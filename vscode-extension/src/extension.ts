@@ -9,14 +9,14 @@ import {
 let client: LanguageClient;
 
 export function activate() {
-    // Path to the compiled psc-lsp binary
+    // Path to the compiled psy-lsp binary
     const serverPath = path.join(
         __dirname,
         "..",
         "..",
         "target",
         "release",
-        "psc-lsp"
+        "psy-lsp"
     );
 
     const serverOptions: ServerOptions = {
