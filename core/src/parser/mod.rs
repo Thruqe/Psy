@@ -202,6 +202,8 @@ impl Parser {
             self.parse_static_declaration()
         } else if self.peek_is_call() {
             self.parse_expression_statement()
+        } else if self.check(Token::Pub) {
+            self.parse_public_declaration()
         } else {
             let token = self.current();
             let err = self.error_at_current(&format!(
@@ -211,6 +213,24 @@ impl Parser {
             self.advance();
             Err(err)
         }
+    }
+
+    fn parse_public_declaration(&mut self) -> Result<Statement, ParseError> {
+        self.advance(); // Consume PUB
+
+        let inner = if self.check(Token::Function) {
+            self.parse_function_declaration()?
+        } else if self.check(Token::Declare) {
+            self.parse_declare()?
+        } else if self.check(Token::Const) {
+            self.parse_const_declaration()?
+        } else {
+            return Err(
+                self.error_at_current("PUB can only be used with FUNCTION, DECLARE, or CONST")
+            );
+        };
+
+        Ok(Statement::Public(Box::new(inner)))
     }
 
     fn parse_expression_statement(&mut self) -> Result<Statement, ParseError> {

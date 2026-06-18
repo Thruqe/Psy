@@ -4,6 +4,7 @@ use pseudocode_core::lexer::Lexer;
 use pseudocode_core::parser::Parser;
 use std::env;
 use std::fs;
+use std::path::Path;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -81,6 +82,22 @@ fn main() {
         return;
     }
 
+    // Resolve and load sibling .psc files' PUB exports before running
+    // the entry file itself.
+    let mut interpreter = Interpreter::new();
+    match load_sibling_exports(filename) {
+        Ok(exports) => {
+            if let Err(e) = interpreter.merge_exports(exports) {
+                eprintln!("Error merging sibling exports: {}", e);
+                return;
+            }
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+            return;
+        }
+    }
+
     let mut lexer = Lexer::new(source.clone());
     let tokens = lexer.tokenize();
 
@@ -103,8 +120,6 @@ fn main() {
         println!();
     }
 
-    let mut interpreter = Interpreter::new();
-
     match interpreter.run(&ast) {
         Ok(_) => {
             if debug_mode {
@@ -116,6 +131,103 @@ fn main() {
             eprintln!();
             eprintln!("Runtime Error: {}", e);
         }
+    }
+}
+
+/// Scans the entry file's directory for sibling .psc files, runs each
+/// one in full isolation, collects their PUB exports, and returns the
+/// merged set — erroring hard if any sibling fails to parse, or if two
+/// siblings export a name that collides.
+fn load_sibling_exports(
+    entry_filename: &str,
+) -> Result<Vec<pseudocode_core::interpreter::Export>, String> {
+    let entry_path = Path::new(entry_filename);
+    let dir = match entry_path.parent() {
+        Some(p) if !p.as_os_str().is_empty() => p,
+        _ => Path::new("."),
+    };
+    let entry_canonical = fs::canonicalize(entry_path).ok();
+
+    let mut sibling_paths = Vec::new();
+    let read_dir = fs::read_dir(dir).map_err(|e| format!("Error reading directory: {}", e))?;
+    for entry in read_dir {
+        let entry = entry.map_err(|e| format!("Error reading directory entry: {}", e))?;
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("psc") {
+            continue;
+        }
+        if let Some(canonical) = &entry_canonical {
+            if fs::canonicalize(&path).ok().as_ref() == Some(canonical) {
+                continue; // Skip the entry file itself.
+            }
+        }
+        sibling_paths.push(path);
+    }
+    sibling_paths.sort();
+
+    let mut all_exports: Vec<pseudocode_core::interpreter::Export> = Vec::new();
+    let mut seen_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for path in sibling_paths {
+        let source = fs::read_to_string(&path)
+            .map_err(|e| format!("Error reading {}: {}", path.display(), e))?;
+
+        let diagnostics = pseudocode_checker::check(&source);
+        let has_errors = diagnostics
+            .iter()
+            .any(|d| d.severity == pseudocode_checker::Severity::Error);
+        if has_errors {
+            let mut msg = format!(
+                "Cannot load sibling module {}: syntax errors found\n",
+                path.display()
+            );
+            for d in diagnostics
+                .iter()
+                .filter(|d| d.severity == pseudocode_checker::Severity::Error)
+            {
+                msg.push_str(&format!(
+                    "  error at line {}, column {}: {}\n",
+                    d.line, d.column, d.message
+                ));
+            }
+            return Err(msg);
+        }
+
+        let mut lexer = Lexer::new(source);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let (ast, _parse_errors) = parser.parse();
+
+        let mut sibling_interpreter = Interpreter::new();
+        sibling_interpreter
+            .run(&ast)
+            .map_err(|e| format!("Runtime error in sibling module {}: {}", path.display(), e))?;
+
+        let exports = sibling_interpreter
+            .collect_exports(&ast)
+            .map_err(|e| format!("Error collecting exports from {}: {}", path.display(), e))?;
+
+        for export in &exports {
+            let name = export_name(export);
+            if !seen_names.insert(name.clone()) {
+                return Err(format!(
+                    "Ambiguous PUB export: '{}' is declared in more than one sibling file",
+                    name
+                ));
+            }
+        }
+
+        all_exports.extend(exports);
+    }
+
+    Ok(all_exports)
+}
+
+fn export_name(export: &pseudocode_core::interpreter::Export) -> String {
+    match export {
+        pseudocode_core::interpreter::Export::Function { name, .. } => name.clone(),
+        pseudocode_core::interpreter::Export::Const { name, .. } => name.clone(),
+        pseudocode_core::interpreter::Export::Array { name, .. } => name.clone(),
     }
 }
 

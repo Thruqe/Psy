@@ -66,6 +66,15 @@ impl Lexer {
                 continue;
             }
 
+            // Extra Single-line comments: #
+
+            if ch == '#' {
+                while self.position < self.chars.len() && self.chars[self.position] != '\n' {
+                    self.advance_char();
+                }
+                continue;
+            }
+
             // String literals
             if ch == '"' {
                 let (line, column) = (self.line, self.column);

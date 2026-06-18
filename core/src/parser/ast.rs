@@ -58,6 +58,7 @@ pub enum Statement {
         expression: Expression,
     },
     ExpressionStatement(Expression),
+    Public(Box<Statement>),
     Return {
         value: Option<Expression>,
     },

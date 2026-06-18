@@ -139,6 +139,30 @@ impl Formatter {
                 let expr_str = self.format_expression(expr)?;
                 writeln!(self.output, "{}{}", indent, expr_str).map_err(|e| e.to_string())?;
             }
+            Statement::Public(inner) => {
+                let indent = " ".repeat(self.indent_level * self.indent_size);
+                let mark = self.output.len();
+
+                self.format_statement(inner)?;
+
+                // format_statement(inner) just wrote its own "{indent}KEYWORD ..." line
+                // (and possibly more, for a multi-line block like FUNCTION). Replace
+                // only that leading indent on the first line with "{indent}PUB ",
+                // since PUB and the keyword belong on the same line, but everything
+                // after (nested body lines) must keep its own correct indentation.
+                let written = self.output[mark..].to_string();
+                self.output.truncate(mark);
+                if let Some(first_newline) = written.find('\n') {
+                    let first_line = &written[..first_newline];
+                    let rest = &written[first_newline..];
+                    let trimmed_first = first_line.trim_start();
+                    write!(self.output, "{}PUB {}{}", indent, trimmed_first, rest)
+                        .map_err(|e| e.to_string())?;
+                } else {
+                    let trimmed = written.trim_start();
+                    write!(self.output, "{}PUB {}", indent, trimmed).map_err(|e| e.to_string())?;
+                }
+            }
             Statement::If {
                 condition,
                 then_branch,

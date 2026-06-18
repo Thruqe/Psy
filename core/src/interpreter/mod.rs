@@ -2,4 +2,4 @@ mod environment;
 mod evaluator;
 pub mod native;
 
-pub use evaluator::Interpreter;
+pub use evaluator::{Export, Interpreter};

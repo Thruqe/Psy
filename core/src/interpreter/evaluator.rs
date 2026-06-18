@@ -18,6 +18,26 @@ enum ControlFlow {
     Return(Value),
 }
 
+/// A single exported item collected from a PUB declaration, ready to be
+/// merged into another Interpreter's state (used for the cross-file
+/// PUB FUNCTION / PUB DECLARE / PUB CONST module system).
+#[derive(Debug, Clone)]
+pub enum Export {
+    Function {
+        name: String,
+        parameters: Vec<String>,
+        body: Vec<Statement>,
+    },
+    Const {
+        name: String,
+        value: Value,
+    },
+    Array {
+        name: String,
+        value: Value,
+    },
+}
+
 pub struct Interpreter {
     environment: Environment,
     functions: HashMap<String, FunctionDef>,
@@ -41,10 +61,21 @@ impl Interpreter {
         }
     }
 
+    /// Strips a Statement::Public wrapper to reveal the declaration
+    /// underneath, so pre-passes (function registration, etc.) can match
+    /// on the real statement regardless of whether it was marked PUB.
+    /// Statements that aren't wrapped are returned unchanged.
+    fn unwrap_public(stmt: &Statement) -> &Statement {
+        match stmt {
+            Statement::Public(inner) => inner,
+            other => other,
+        }
+    }
+
     pub fn run(&mut self, statements: &[Statement]) -> Result<(), String> {
         // Process imports first
         for stmt in statements {
-            if let Statement::Import { modules } = stmt {
+            if let Statement::Import { modules } = Self::unwrap_public(stmt) {
                 for module_import in modules {
                     if let Some(module) = get_module(&module_import.name) {
                         self.imported_modules.push(module_import.name.clone());
@@ -78,7 +109,7 @@ impl Interpreter {
                 name,
                 parameters,
                 body,
-            } = stmt
+            } = Self::unwrap_public(stmt)
             {
                 self.functions.insert(
                     name.clone(),
@@ -100,6 +131,83 @@ impl Interpreter {
         self.environment.print_state();
     }
 
+    /// Walks `statements` for every top-level PUB declaration and returns
+    /// its current value as held by this interpreter, which must already
+    /// have finished running those statements. This is how a sibling
+    /// file's public functions/consts/arrays get handed to another
+    /// Interpreter for merging.
+    pub fn collect_exports(&self, statements: &[Statement]) -> Result<Vec<Export>, String> {
+        let mut exports = Vec::new();
+
+        for stmt in statements {
+            if let Statement::Public(inner) = stmt {
+                match inner.as_ref() {
+                    Statement::FunctionDeclaration {
+                        name,
+                        parameters,
+                        body,
+                    } => {
+                        exports.push(Export::Function {
+                            name: name.clone(),
+                            parameters: parameters.clone(),
+                            body: body.clone(),
+                        });
+                    }
+                    Statement::ConstDeclaration { name, .. } => {
+                        let value = self.environment.get(name);
+                        exports.push(Export::Const {
+                            name: name.clone(),
+                            value,
+                        });
+                    }
+                    Statement::DeclareArray { name, .. } => {
+                        let value = self.environment.get(name);
+                        exports.push(Export::Array {
+                            name: name.clone(),
+                            value,
+                        });
+                    }
+                    other => {
+                        return Err(format!(
+                            "PUB is not supported on this kind of statement: {:?}",
+                            other
+                        ));
+                    }
+                }
+            }
+        }
+
+        Ok(exports)
+    }
+
+    /// Merges a set of exports (collected from a sibling file via
+    /// collect_exports) into this interpreter's own state, as if they had
+    /// been declared directly in this file.
+    pub fn merge_exports(&mut self, exports: Vec<Export>) -> Result<(), String> {
+        for export in exports {
+            match export {
+                Export::Function {
+                    name,
+                    parameters,
+                    body,
+                } => {
+                    self.functions
+                        .insert(name, FunctionDef { parameters, body });
+                }
+                Export::Const { name, value } => {
+                    self.environment.set_const(&name, value)?;
+                }
+                Export::Array { name, value } => {
+                    // value is already a Value::Array from the sibling's
+                    // post-execution state; install it directly rather
+                    // than re-declaring a fresh empty array.
+                    self.environment.set(&name, value)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Returns the persistent-storage key for `name` if it refers to a
     /// STATIC variable in the function currently executing (the top of
     /// the static scope stack), or None if it's an ordinary variable.
@@ -114,6 +222,7 @@ impl Interpreter {
 
     fn execute_statement(&mut self, stmt: &Statement) -> Result<ControlFlow, String> {
         match stmt {
+            Statement::Public(inner) => self.execute_statement(inner),
             Statement::Import { .. } => {
                 // Already processed in the run() pre-pass
                 Ok(ControlFlow::Normal)
