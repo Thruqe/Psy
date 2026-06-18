@@ -1,6 +1,6 @@
-# Pseudocode Interpreter Modules
+# Psy Interpreter Modules
 
-This directory contains built-in modules that can be imported into pseudocode programs.
+This directory contains built-in modules that can be imported into psy programs.
 
 ## Available Modules
 
@@ -10,7 +10,7 @@ Mathematical functions and constants including trigonometric functions, rounding
 
 **Import:**
 
-```pseudocode
+```psy
 IMPORT _MATH
 ```
 
@@ -79,25 +79,25 @@ modules/
 
 ### Import Entire Module
 
-```pseudocode
+```psy
 IMPORT _MODULE
 ```
 
 ### Import Specific Functions
 
-```pseudocode
+```psy
 IMPORT _MODULE[FUN1, FUN2, FUN3]
 ```
 
 ### Import Multiple Modules
 
-```pseudocode
+```psy
 IMPORT _MODULE1, _MODULE2
 ```
 
 ### Import with Aliases (Future Feature)
 
-```pseudocode
+```psy
 IMPORT _MODULE1 AS MODULE_SOMETHING_ELSE
 ```
 

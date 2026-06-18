@@ -1,4 +1,4 @@
-use pseudocode_types::Value;
+use psy_types::Value;
 
 /// A resolved matrix: row-major flat data plus its dimensions.
 pub(crate) struct Matrix {

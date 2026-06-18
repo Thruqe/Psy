@@ -71,252 +71,252 @@ fn math_module() -> NativeModule {
     functions.insert(
         "SIN",
         NativeFunctionInfo {
-            func: pseudocode_math::sin,
+            func: psy_math::sin,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "COS",
         NativeFunctionInfo {
-            func: pseudocode_math::cos,
+            func: psy_math::cos,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "TAN",
         NativeFunctionInfo {
-            func: pseudocode_math::tan,
+            func: psy_math::tan,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "SQRT",
         NativeFunctionInfo {
-            func: pseudocode_math::sqrt,
+            func: psy_math::sqrt,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "POW",
         NativeFunctionInfo {
-            func: pseudocode_math::pow,
+            func: psy_math::pow,
             arity: Arity::Exact(2),
         },
     );
     functions.insert(
         "ABS",
         NativeFunctionInfo {
-            func: pseudocode_math::abs,
+            func: psy_math::abs,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "ROUND",
         NativeFunctionInfo {
-            func: pseudocode_math::round,
+            func: psy_math::round,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "FLOOR",
         NativeFunctionInfo {
-            func: pseudocode_math::floor,
+            func: psy_math::floor,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "CEIL",
         NativeFunctionInfo {
-            func: pseudocode_math::ceil,
+            func: psy_math::ceil,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "MEAN",
         NativeFunctionInfo {
-            func: pseudocode_math::mean,
+            func: psy_math::mean,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "MEDIAN",
         NativeFunctionInfo {
-            func: pseudocode_math::median,
+            func: psy_math::median,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "MODE",
         NativeFunctionInfo {
-            func: pseudocode_math::mode,
+            func: psy_math::mode,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "VARIANCE",
         NativeFunctionInfo {
-            func: pseudocode_math::variance,
+            func: psy_math::variance,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "STDDEV",
         NativeFunctionInfo {
-            func: pseudocode_math::stddev,
+            func: psy_math::stddev,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "MIN",
         NativeFunctionInfo {
-            func: pseudocode_math::min,
+            func: psy_math::min,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "MAX",
         NativeFunctionInfo {
-            func: pseudocode_math::max,
+            func: psy_math::max,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "SUM",
         NativeFunctionInfo {
-            func: pseudocode_math::sum,
+            func: psy_math::sum,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "PRODUCT",
         NativeFunctionInfo {
-            func: pseudocode_math::product,
+            func: psy_math::product,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "GCD",
         NativeFunctionInfo {
-            func: pseudocode_math::gcd,
+            func: psy_math::gcd,
             arity: Arity::Exact(2),
         },
     );
     functions.insert(
         "LCM",
         NativeFunctionInfo {
-            func: pseudocode_math::lcm,
+            func: psy_math::lcm,
             arity: Arity::Exact(2),
         },
     );
     functions.insert(
         "IS_PRIME",
         NativeFunctionInfo {
-            func: pseudocode_math::is_prime,
+            func: psy_math::is_prime,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "MATRIX_ADD",
         NativeFunctionInfo {
-            func: pseudocode_math::matrix_add,
+            func: psy_math::matrix_add,
             arity: Arity::AtLeast(2),
         },
     );
     functions.insert(
         "MATRIX_MULTIPLY",
         NativeFunctionInfo {
-            func: pseudocode_math::matrix_multiply,
+            func: psy_math::matrix_multiply,
             arity: Arity::AtLeast(2),
         },
     );
     functions.insert(
         "MATRIX_TRANSPOSE",
         NativeFunctionInfo {
-            func: pseudocode_math::matrix_transpose,
+            func: psy_math::matrix_transpose,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "MATRIX_DETERMINANT",
         NativeFunctionInfo {
-            func: pseudocode_math::matrix_determinant,
+            func: psy_math::matrix_determinant,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "MATRIX_INVERSE",
         NativeFunctionInfo {
-            func: pseudocode_math::matrix_inverse,
+            func: psy_math::matrix_inverse,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "DOT",
         NativeFunctionInfo {
-            func: pseudocode_math::dot,
+            func: psy_math::dot,
             arity: Arity::Exact(2),
         },
     );
     functions.insert(
         "CROSS",
         NativeFunctionInfo {
-            func: pseudocode_math::cross,
+            func: psy_math::cross,
             arity: Arity::Exact(2),
         },
     );
     functions.insert(
         "ASIN",
         NativeFunctionInfo {
-            func: pseudocode_math::asin,
+            func: psy_math::asin,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "ACOS",
         NativeFunctionInfo {
-            func: pseudocode_math::acos,
+            func: psy_math::acos,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "ATAN",
         NativeFunctionInfo {
-            func: pseudocode_math::atan,
+            func: psy_math::atan,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "LOG",
         NativeFunctionInfo {
-            func: pseudocode_math::log,
+            func: psy_math::log,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "LOG10",
         NativeFunctionInfo {
-            func: pseudocode_math::log10,
+            func: psy_math::log10,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "EXP",
         NativeFunctionInfo {
-            func: pseudocode_math::exp,
+            func: psy_math::exp,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "FACTORIAL",
         NativeFunctionInfo {
-            func: pseudocode_math::factorial,
+            func: psy_math::factorial,
             arity: Arity::Exact(1),
         },
     );
 
     let mut constants: HashMap<&'static str, Value> = HashMap::new();
-    constants.insert("PI", pseudocode_math::pi());
-    constants.insert("E", pseudocode_math::e());
+    constants.insert("PI", psy_math::pi());
+    constants.insert("E", psy_math::e());
 
     NativeModule {
         functions,

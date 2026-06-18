@@ -1,4 +1,4 @@
-use pseudocode_types::Value;
+use psy_types::Value;
 
 fn extract_vector(value: &Value, fn_name: &str) -> Result<Vec<f64>, String> {
     match value {

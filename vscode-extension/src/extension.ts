@@ -25,12 +25,12 @@ export function activate() {
     };
 
     const clientOptions: LanguageClientOptions = {
-        documentSelector: [{ scheme: "file", language: "pseudocode" }],
+        documentSelector: [{ scheme: "file", language: "psy" }],
     };
 
     client = new LanguageClient(
-        "pseudocodeLsp",
-        "Pseudocode Language Server",
+        "psyLsp",
+        "Psy Language Server",
         serverOptions,
         clientOptions
     );

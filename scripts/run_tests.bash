@@ -4,7 +4,7 @@ mkdir -p /tmp/psc_regression
 rm -rf /tmp/psc_regression/*
 cp -r examples /tmp/psc_regression/examples
 
-echo "=== Pseudocode Tests ==="
+echo "=== Psy Tests ==="
 echo
 
 passed=0

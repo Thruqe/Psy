@@ -1,5 +1,5 @@
 [package]
-name = "pseudocode-checker"
+name = "psy-checker"
 version.workspace = true
 edition.workspace = true
 
@@ -7,4 +7,4 @@ edition.workspace = true
 path = "src/lib.rs"
 
 [dependencies]
-pseudocode-core = { path = "../core" }
+psy-core = { path = "../core" }

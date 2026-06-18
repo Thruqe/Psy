@@ -1,5 +1,5 @@
-use pseudocode_core::parser::ParseError;
-pub use pseudocode_core::parser::Severity;
+use psy_core::parser::ParseError;
+pub use psy_core::parser::Severity;
 
 #[derive(Debug, Clone)]
 pub struct Diagnostic {

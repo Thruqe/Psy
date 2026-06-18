@@ -1,7 +1,7 @@
 use crate::diagnostics::Diagnostic;
 use crate::rules;
-use pseudocode_core::lexer::Lexer;
-use pseudocode_core::parser::Parser;
+use psy_core::lexer::Lexer;
+use psy_core::parser::Parser;
 
 /// Runs the lexer + parser over `source` and returns every diagnostic
 /// found, with rule-based suggestions attached where applicable.

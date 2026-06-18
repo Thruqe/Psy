@@ -1,22 +1,22 @@
-# Pseudocode Math Module
+# Psy Math Module
 
-A built-in math module for the Pseudocode Interpreter providing common mathematical functions and constants.
+A built-in math module for the Psy Interpreter providing common mathematical functions and constants.
 
 ## Overview
 
-The `_MATH` module provides a comprehensive set of mathematical functions and constants for use in pseudocode programs. All trigonometric functions operate with **degrees** (not radians) for educational purposes and ease of use.
+The `_MATH` module provides a comprehensive set of mathematical functions and constants for use in psy programs. All trigonometric functions operate with **degrees** (not radians) for educational purposes and ease of use.
 
 ## Importing the Module
 
-To use the math module in your pseudocode program:
+To use the math module in your psy program:
 
-```pseudocode
+```psy
 IMPORT _MATH
 ```
 
 To import only specific functions:
 
-```pseudocode
+```psy
 IMPORT _MATH[SIN, COS, TAN]
 ```
 
@@ -78,7 +78,7 @@ IMPORT _MATH[SIN, COS, TAN]
 
 **Note:** All statistical functions accept both individual numbers and arrays. For example:
 
-```pseudocode
+```psy
 MEAN(1, 2, 3, 4, 5)     // Returns 3
 MEAN(data_array)         // Returns mean of array elements
 MEAN(1, 2, data_array)   // Mixed input is also supported
@@ -109,7 +109,7 @@ MEAN(1, 2, data_array)   // Mixed input is also supported
 
 ### Basic Math Operations
 
-```pseudocode
+```psy
 IMPORT _MATH
 START
 
@@ -140,7 +140,7 @@ END
 
 ### Advanced Math Example
 
-```pseudocode
+```psy
 IMPORT _MATH[POW, SQRT, COS, SIN]
 START
 
@@ -174,7 +174,7 @@ END
 
 ### Geometry Calculator
 
-```pseudocode
+```psy
 IMPORT _MATH[PI, SIN, COS, TAN, POW, SQRT]
 START
 
@@ -204,7 +204,7 @@ END
 
 ### Statistical Calculations
 
-```pseudocode
+```psy
 IMPORT _MATH[MEAN, MEDIAN, MODE, VARIANCE, STDDEV, MIN, MAX, SUM, PRODUCT]
 START
 
@@ -245,7 +245,7 @@ END
 
 ### Data Analysis Example
 
-```pseudocode
+```psy
 IMPORT _MATH[MEAN, MEDIAN, MODE, VARIANCE, STDDEV, MIN, MAX]
 START
 
@@ -281,7 +281,7 @@ END
 
 ## Trigonometric identity verification:
 
-````pseudocode
+````psy
 IMPORT _MATH[SIN, COS, TAN, PI]
 START
     angle = 45
@@ -294,7 +294,7 @@ END
 
 The math module provides clear error messages when functions are used incorrectly:
 
-```pseudocode
+```psy
 IMPORT _MATH
 START
 
@@ -342,9 +342,9 @@ To add new functions to the math module:
 
 ## License
 
-This module is part of the Pseudocode Interpreter project and is licensed under the same terms.
+This module is part of the Psy Interpreter project and is licensed under the same terms.
 
 ## See Also
 
-- [Pseudocode Interpreter Documentation](../../README.md)
+- [Psy Interpreter Documentation](../../README.md)
 - [Other Built-in Modules](../../modules/)

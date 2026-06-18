@@ -1,12 +1,12 @@
 [package]
-name = "psc"
+name = "psy"
 version.workspace = true
 edition.workspace = true
 
 [[bin]]
-name = "psc"
+name = "psy"
 path = "src/main.rs"
 
 [dependencies]
-pseudocode-core = { path = "../core" }
-pseudocode-checker = { path = "../checker" }
+psy-core = { path = "../core" }
+psy-checker = { path = "../checker" }

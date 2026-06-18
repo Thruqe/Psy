@@ -1,7 +1,7 @@
 {
-	"name": "pseudocode-lsp",
-	"displayName": "Pseudocode LSP",
-	"description": "Pseudocode Language Server Protocol extension",
+	"name": "psy-lsp",
+	"displayName": "Psy LSP",
+	"description": "Psy Language Server Protocol extension",
 	"version": "0.0.1",
 	"engines": {
 		"vscode": "^1.103.0"
@@ -10,16 +10,16 @@
 		"Programming Languages"
 	],
 	"activationEvents": [
-		"onLanguage:pseudocode"
+		"onLanguage:psy"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"languages": [
 			{
-				"id": "pseudocode",
+				"id": "psy",
 				"aliases": [
-					"Pseudocode",
-					"pseudocode"
+					"Psy",
+					"psy"
 				],
 				"extensions": [
 					".psc"
@@ -29,9 +29,9 @@
 		],
 		"grammars": [
 			{
-				"language": "pseudocode",
+				"language": "psy",
 				"scopeName": "source.psc",
-				"path": "./syntaxes/pseudocode.tmLanguage.json"
+				"path": "./syntaxes/psy.tmLanguage.json"
 			}
 		]
 	},

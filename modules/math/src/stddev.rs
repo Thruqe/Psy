@@ -1,4 +1,4 @@
-use pseudocode_types::Value;
+use psy_types::Value;
 
 pub fn stddev(args: &[Value]) -> Result<Value, String> {
     if args.is_empty() {

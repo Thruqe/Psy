@@ -1,4 +1,4 @@
-use pseudocode_core::parser::ast::Statement;
+use psy_core::parser::ast::Statement;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SymbolKind {

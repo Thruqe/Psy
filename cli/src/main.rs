@@ -1,7 +1,7 @@
-use pseudocode_core::formatter::Formatter;
-use pseudocode_core::interpreter::Interpreter;
-use pseudocode_core::lexer::Lexer;
-use pseudocode_core::parser::Parser;
+use psy_core::formatter::Formatter;
+use psy_core::interpreter::Interpreter;
+use psy_core::lexer::Lexer;
+use psy_core::parser::Parser;
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -11,7 +11,7 @@ fn main() {
     let program_name = args
         .first()
         .map(|s| s.as_str())
-        .unwrap_or("pseudocode-interpreter");
+        .unwrap_or("psy-interpreter");
 
     if args.len() < 2 {
         print_usage(program_name);
@@ -34,10 +34,10 @@ fn main() {
 
     // If --fmt flag is present, format and output
     if fmt_mode {
-        let diagnostics = pseudocode_checker::check(&source);
+        let diagnostics = psy_checker::check(&source);
         let errors: Vec<_> = diagnostics
             .iter()
-            .filter(|d| d.severity == pseudocode_checker::Severity::Error)
+            .filter(|d| d.severity == psy_checker::Severity::Error)
             .collect();
 
         if !errors.is_empty() {
@@ -56,7 +56,7 @@ fn main() {
 
         let warnings: Vec<_> = diagnostics
             .iter()
-            .filter(|d| d.severity == pseudocode_checker::Severity::Warning)
+            .filter(|d| d.severity == psy_checker::Severity::Warning)
             .collect();
         for warn in &warnings {
             eprintln!(
@@ -140,7 +140,7 @@ fn main() {
 /// siblings export a name that collides.
 fn load_sibling_exports(
     entry_filename: &str,
-) -> Result<Vec<pseudocode_core::interpreter::Export>, String> {
+) -> Result<Vec<psy_core::interpreter::Export>, String> {
     let entry_path = Path::new(entry_filename);
     let dir = match entry_path.parent() {
         Some(p) if !p.as_os_str().is_empty() => p,
@@ -165,17 +165,17 @@ fn load_sibling_exports(
     }
     sibling_paths.sort();
 
-    let mut all_exports: Vec<pseudocode_core::interpreter::Export> = Vec::new();
+    let mut all_exports: Vec<psy_core::interpreter::Export> = Vec::new();
     let mut seen_names: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for path in sibling_paths {
         let source = fs::read_to_string(&path)
             .map_err(|e| format!("Error reading {}: {}", path.display(), e))?;
 
-        let diagnostics = pseudocode_checker::check(&source);
+        let diagnostics = psy_checker::check(&source);
         let has_errors = diagnostics
             .iter()
-            .any(|d| d.severity == pseudocode_checker::Severity::Error);
+            .any(|d| d.severity == psy_checker::Severity::Error);
         if has_errors {
             let mut msg = format!(
                 "Cannot load sibling module {}: syntax errors found\n",
@@ -183,7 +183,7 @@ fn load_sibling_exports(
             );
             for d in diagnostics
                 .iter()
-                .filter(|d| d.severity == pseudocode_checker::Severity::Error)
+                .filter(|d| d.severity == psy_checker::Severity::Error)
             {
                 msg.push_str(&format!(
                     "  error at line {}, column {}: {}\n",
@@ -223,33 +223,14 @@ fn load_sibling_exports(
     Ok(all_exports)
 }
 
-fn export_name(export: &pseudocode_core::interpreter::Export) -> String {
+fn export_name(export: &psy_core::interpreter::Export) -> String {
     match export {
-        pseudocode_core::interpreter::Export::Function { name, .. } => name.clone(),
-        pseudocode_core::interpreter::Export::Const { name, .. } => name.clone(),
-        pseudocode_core::interpreter::Export::Array { name, .. } => name.clone(),
+        psy_core::interpreter::Export::Function { name, .. } => name.clone(),
+        psy_core::interpreter::Export::Const { name, .. } => name.clone(),
+        psy_core::interpreter::Export::Array { name, .. } => name.clone(),
     }
 }
 
 fn print_usage(program_name: &str) {
-    println!("Pseudocode Interpreter");
-    println!();
-    println!("Usage:");
-    println!(
-        "  {} <filename.psc>          Run a pseudocode file",
-        program_name
-    );
-    println!(
-        "  {} <filename.psc> --debug  Run with debug output",
-        program_name
-    );
-    println!(
-        "  {} <filename.psc> --fmt    Format a pseudocode file",
-        program_name
-    );
-    println!();
-    println!("Examples:");
-    println!("  {} program.psc", program_name);
-    println!("  {} program.psc --debug", program_name);
-    println!("  {} program.psc --fmt", program_name);
+    println!("File input not provided for {}", program_name);
 }

@@ -1,4 +1,4 @@
-use pseudocode_types::Value;
+use psy_types::Value;
 use std::collections::HashMap;
 
 pub fn mode(args: &[Value]) -> Result<Value, String> {

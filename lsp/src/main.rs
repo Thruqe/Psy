@@ -1,4 +1,4 @@
-use pseudocode_checker::{Diagnostic as PscDiagnostic, Severity as PscSeverity};
+use psy_checker::{Diagnostic as PscDiagnostic, Severity as PscSeverity};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -18,7 +18,7 @@ impl LanguageServer for Backend {
                 ..Default::default()
             },
             server_info: Some(ServerInfo {
-                name: "pseudocode-lsp".to_string(),
+                name: "psy-lsp".to_string(),
                 version: Some(env!("CARGO_PKG_VERSION").to_string()),
             }),
         })
@@ -26,7 +26,7 @@ impl LanguageServer for Backend {
 
     async fn initialized(&self, _: InitializedParams) {
         self.client
-            .log_message(MessageType::INFO, "pseudocode-lsp initialized")
+            .log_message(MessageType::INFO, "psy-lsp initialized")
             .await;
     }
 
@@ -59,7 +59,7 @@ impl LanguageServer for Backend {
 
 impl Backend {
     async fn check_and_publish(&self, uri: Url, source: &str) {
-        let psc_diagnostics = pseudocode_checker::check(source);
+        let psc_diagnostics = psy_checker::check(source);
         let lsp_diagnostics: Vec<Diagnostic> = psc_diagnostics
             .iter()
             .map(|d| convert_diagnostic(d))
@@ -104,7 +104,7 @@ fn convert_diagnostic(d: &PscDiagnostic) -> Diagnostic {
         severity: Some(severity),
         code: None,
         code_description: None,
-        source: Some("pseudocode-checker".to_string()),
+        source: Some("psy-checker".to_string()),
         message,
         related_information: None,
         tags: None,

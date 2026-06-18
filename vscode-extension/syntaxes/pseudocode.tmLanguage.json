@@ -1,7 +1,7 @@
 {
     "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-    "name": "Pseudocode",
-    "scopeName": "source.psc",
+    "name": "Psy",
+    "scopeName": "source.psy",
     "patterns": [
         {
             "include": "#comments"

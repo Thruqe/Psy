@@ -1,5 +1,5 @@
 [package]
-name = "pseudocode-lsp"
+name = "psy-lsp"
 version.workspace = true
 edition.workspace = true
 
@@ -8,6 +8,6 @@ name = "psc-lsp"
 path = "src/main.rs"
 
 [dependencies]
-pseudocode-checker = { path = "../checker" }
+psy-checker = { path = "../checker" }
 tower-lsp = "0.20"
 tokio = { version = "1", features = ["full"] }

@@ -1,4 +1,4 @@
-use pseudocode_types::Value;
+use psy_types::Value;
 
 pub fn pi() -> Value {
     Value::Number(std::f64::consts::PI)

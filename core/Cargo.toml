@@ -1,5 +1,5 @@
 [package]
-name = "pseudocode-core"
+name = "psy-core"
 version = "0.1.0"
 edition = "2024"
 
@@ -7,5 +7,5 @@ edition = "2024"
 path = "src/lib.rs"
 
 [dependencies]
-pseudocode-types = { path = "../types" }
-pseudocode-math = { path = "../modules/math" }
+psy-types = { path = "../types" }
+psy-math = { path = "../modules/math" }

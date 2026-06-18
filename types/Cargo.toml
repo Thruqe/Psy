@@ -1,5 +1,5 @@
 [package]
-name = "pseudocode-types"
+name = "psy-types"
 version.workspace = true
 edition.workspace = true
 

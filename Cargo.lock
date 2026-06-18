@@ -419,46 +419,46 @@ dependencies = [
 ]
 
 [[package]]
-name = "psc"
+name = "psy"
 version = "0.1.0"
 dependencies = [
- "pseudocode-checker",
- "pseudocode-core",
+ "psy-checker",
+ "psy-core",
 ]
 
 [[package]]
-name = "pseudocode-checker"
+name = "psy-checker"
 version = "0.1.0"
 dependencies = [
- "pseudocode-core",
+ "psy-core",
 ]
 
 [[package]]
-name = "pseudocode-core"
+name = "psy-core"
 version = "0.1.0"
 dependencies = [
- "pseudocode-math",
- "pseudocode-types",
+ "psy-math",
+ "psy-types",
 ]
 
 [[package]]
-name = "pseudocode-lsp"
+name = "psy-lsp"
 version = "0.1.0"
 dependencies = [
- "pseudocode-checker",
+ "psy-checker",
  "tokio",
  "tower-lsp",
 ]
 
 [[package]]
-name = "pseudocode-math"
+name = "psy-math"
 version = "0.1.0"
 dependencies = [
- "pseudocode-types",
+ "psy-types",
 ]
 
 [[package]]
-name = "pseudocode-types"
+name = "psy-types"
 version = "0.1.0"
 
 [[package]]
