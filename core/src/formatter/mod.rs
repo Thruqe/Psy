@@ -1,4 +1,4 @@
-use crate::parser::ast::{Expression, Operator, OutputValue, Statement};
+use crate::parser::ast::{Expression, Operator, OutputValue, Spanned, Statement};
 use std::fmt::Write;
 
 pub struct Formatter {
@@ -27,7 +27,7 @@ impl Formatter {
 
         let (imports, body): (Vec<_>, Vec<_>) = ast
             .iter()
-            .partition(|stmt| matches!(stmt, Statement::Import { .. }));
+            .partition(|stmt| matches!(&stmt.node, Statement::Import { .. }));
 
         for stmt in &imports {
             self.format_statement(stmt)?;
@@ -52,10 +52,28 @@ impl Formatter {
         Ok(self.output.clone())
     }
 
-    fn format_statement(&mut self, stmt: &Statement) -> Result<(), String> {
+    fn format_statement(&mut self, stmt: &Spanned<Statement>) -> Result<(), String> {
         let indent = " ".repeat(self.indent_level * self.indent_size);
 
-        match stmt {
+        match &stmt.node {
+            Statement::Public(inner) => {
+                let mark = self.output.len();
+
+                self.format_statement(inner)?;
+
+                let written = self.output[mark..].to_string();
+                self.output.truncate(mark);
+                if let Some(first_newline) = written.find('\n') {
+                    let first_line = &written[..first_newline];
+                    let rest = &written[first_newline..];
+                    let trimmed_first = first_line.trim_start();
+                    write!(self.output, "{}PUB {}{}", indent, trimmed_first, rest)
+                        .map_err(|e| e.to_string())?;
+                } else {
+                    let trimmed = written.trim_start();
+                    write!(self.output, "{}PUB {}", indent, trimmed).map_err(|e| e.to_string())?;
+                }
+            }
             Statement::Import { modules } => {
                 let parts: Vec<String> = modules
                     .iter()
@@ -95,93 +113,22 @@ impl Formatter {
                 writeln!(self.output, "{}OUTPUT {}", indent, output_line)
                     .map_err(|e| e.to_string())?;
             }
-            Statement::FunctionDeclaration {
-                name,
-                parameters,
-                body,
-            } => {
-                let params = parameters.join(", ");
-                writeln!(self.output, "{}FUNCTION {}({})", indent, name, params)
-                    .map_err(|e| e.to_string())?;
-
-                self.indent_level += 1;
-                for stmt in body {
-                    self.format_statement(stmt)?;
-                }
-                self.indent_level -= 1;
-
-                writeln!(self.output, "{}ENDFUNCTION", indent).map_err(|e| e.to_string())?;
-            }
-            Statement::ConstDeclaration { name, expression } => {
-                let indent = " ".repeat(self.indent_level * self.indent_size);
-                let expr_str = self.format_expression(expression)?;
-                writeln!(self.output, "{}CONST {} = {}", indent, name, expr_str)
-                    .map_err(|e| e.to_string())?;
-            }
-            Statement::Return { value } => match value {
-                Some(expr) => {
-                    let expr_str = self.format_expression(expr)?;
-                    writeln!(self.output, "{}RETURN {}", indent, expr_str)
-                        .map_err(|e| e.to_string())?;
-                }
-                None => {
-                    writeln!(self.output, "{}RETURN", indent).map_err(|e| e.to_string())?;
-                }
-            },
-            Statement::StaticDeclaration { name, expression } => {
-                let indent = " ".repeat(self.indent_level * self.indent_size);
-                let expr_str = self.format_expression(expression)?;
-                writeln!(self.output, "{}STATIC {} = {}", indent, name, expr_str)
-                    .map_err(|e| e.to_string())?;
-            }
-            Statement::ExpressionStatement(expr) => {
-                let indent = " ".repeat(self.indent_level * self.indent_size);
-                let expr_str = self.format_expression(expr)?;
-                writeln!(self.output, "{}{}", indent, expr_str).map_err(|e| e.to_string())?;
-            }
-            Statement::Public(inner) => {
-                let indent = " ".repeat(self.indent_level * self.indent_size);
-                let mark = self.output.len();
-
-                self.format_statement(inner)?;
-
-                // format_statement(inner) just wrote its own "{indent}KEYWORD ..." line
-                // (and possibly more, for a multi-line block like FUNCTION). Replace
-                // only that leading indent on the first line with "{indent}PUB ",
-                // since PUB and the keyword belong on the same line, but everything
-                // after (nested body lines) must keep its own correct indentation.
-                let written = self.output[mark..].to_string();
-                self.output.truncate(mark);
-                if let Some(first_newline) = written.find('\n') {
-                    let first_line = &written[..first_newline];
-                    let rest = &written[first_newline..];
-                    let trimmed_first = first_line.trim_start();
-                    write!(self.output, "{}PUB {}{}", indent, trimmed_first, rest)
-                        .map_err(|e| e.to_string())?;
-                } else {
-                    let trimmed = written.trim_start();
-                    write!(self.output, "{}PUB {}", indent, trimmed).map_err(|e| e.to_string())?;
-                }
-            }
             Statement::If {
                 condition,
                 then_branch,
                 else_if_branches,
                 else_branch,
             } => {
-                // IF condition THEN
                 let cond_str = self.format_expression(condition)?;
                 writeln!(self.output, "{}IF {} THEN", indent, cond_str)
                     .map_err(|e| e.to_string())?;
 
-                // Then branch
                 self.indent_level += 1;
                 for stmt in then_branch {
                     self.format_statement(stmt)?;
                 }
                 self.indent_level -= 1;
 
-                // ELSEIF branches
                 for (elseif_cond, elseif_body) in else_if_branches {
                     let elseif_str = self.format_expression(elseif_cond)?;
                     writeln!(self.output, "{}ELSEIF {} THEN", indent, elseif_str)
@@ -194,7 +141,6 @@ impl Formatter {
                     self.indent_level -= 1;
                 }
 
-                // ELSE branch
                 if !else_branch.is_empty() {
                     writeln!(self.output, "{}ELSE", indent).map_err(|e| e.to_string())?;
 
@@ -256,13 +202,54 @@ impl Formatter {
                 )
                 .map_err(|e| e.to_string())?;
             }
+            Statement::FunctionDeclaration {
+                name,
+                parameters,
+                body,
+            } => {
+                let params = parameters.join(", ");
+                writeln!(self.output, "{}FUNCTION {}({})", indent, name, params)
+                    .map_err(|e| e.to_string())?;
+
+                self.indent_level += 1;
+                for stmt in body {
+                    self.format_statement(stmt)?;
+                }
+                self.indent_level -= 1;
+
+                writeln!(self.output, "{}ENDFUNCTION", indent).map_err(|e| e.to_string())?;
+            }
+            Statement::Return { value } => match value {
+                Some(expr) => {
+                    let expr_str = self.format_expression(expr)?;
+                    writeln!(self.output, "{}RETURN {}", indent, expr_str)
+                        .map_err(|e| e.to_string())?;
+                }
+                None => {
+                    writeln!(self.output, "{}RETURN", indent).map_err(|e| e.to_string())?;
+                }
+            },
+            Statement::ConstDeclaration { name, expression } => {
+                let expr_str = self.format_expression(expression)?;
+                writeln!(self.output, "{}CONST {} = {}", indent, name, expr_str)
+                    .map_err(|e| e.to_string())?;
+            }
+            Statement::StaticDeclaration { name, expression } => {
+                let expr_str = self.format_expression(expression)?;
+                writeln!(self.output, "{}STATIC {} = {}", indent, name, expr_str)
+                    .map_err(|e| e.to_string())?;
+            }
+            Statement::ExpressionStatement(expr) => {
+                let expr_str = self.format_expression(expr)?;
+                writeln!(self.output, "{}{}", indent, expr_str).map_err(|e| e.to_string())?;
+            }
         }
 
         Ok(())
     }
 
-    fn format_expression(&self, expr: &Expression) -> Result<String, String> {
-        match expr {
+    fn format_expression(&self, expr: &Spanned<Expression>) -> Result<String, String> {
+        match &expr.node {
             Expression::Number(n) => Ok(n.to_string()),
             Expression::String(s) => Ok(format!("\"{}\"", s)),
             Expression::Boolean(b) => Ok(b.to_string().to_uppercase()),

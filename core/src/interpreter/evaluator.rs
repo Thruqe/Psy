@@ -1,13 +1,13 @@
 use crate::interpreter::environment::{Environment, Value};
 use crate::interpreter::native::{self, get_module};
-use crate::parser::ast::{Expression, Operator, OutputValue, Statement, UnaryOperator};
+use crate::parser::ast::{Expression, Operator, OutputValue, Spanned, Statement, UnaryOperator};
 use std::collections::HashMap;
 use std::io::{self, Write};
 
 #[derive(Debug, Clone)]
 struct FunctionDef {
     parameters: Vec<String>,
-    body: Vec<Statement>,
+    body: Vec<Spanned<Statement>>,
 }
 
 /// Signals whether a block finished normally or hit a RETURN that needs
@@ -26,7 +26,7 @@ pub enum Export {
     Function {
         name: String,
         parameters: Vec<String>,
-        body: Vec<Statement>,
+        body: Vec<Spanned<Statement>>,
     },
     Const {
         name: String,
@@ -67,15 +67,15 @@ impl Interpreter {
     /// Statements that aren't wrapped are returned unchanged.
     fn unwrap_public(stmt: &Statement) -> &Statement {
         match stmt {
-            Statement::Public(inner) => inner,
+            Statement::Public(inner) => &inner.node,
             other => other,
         }
     }
 
-    pub fn run(&mut self, statements: &[Statement]) -> Result<(), String> {
+    pub fn run(&mut self, statements: &[Spanned<Statement>]) -> Result<(), String> {
         // Process imports first
         for stmt in statements {
-            if let Statement::Import { modules } = Self::unwrap_public(stmt) {
+            if let Statement::Import { modules } = Self::unwrap_public(&stmt.node) {
                 for module_import in modules {
                     if let Some(module) = get_module(&module_import.name) {
                         self.imported_modules.push(module_import.name.clone());
@@ -109,7 +109,7 @@ impl Interpreter {
                 name,
                 parameters,
                 body,
-            } = Self::unwrap_public(stmt)
+            } = Self::unwrap_public(&stmt.node)
             {
                 self.functions.insert(
                     name.clone(),
@@ -136,12 +136,15 @@ impl Interpreter {
     /// have finished running those statements. This is how a sibling
     /// file's public functions/consts/arrays get handed to another
     /// Interpreter for merging.
-    pub fn collect_exports(&self, statements: &[Statement]) -> Result<Vec<Export>, String> {
+    pub fn collect_exports(
+        &self,
+        statements: &[Spanned<Statement>],
+    ) -> Result<Vec<Export>, String> {
         let mut exports = Vec::new();
 
         for stmt in statements {
-            if let Statement::Public(inner) = stmt {
-                match inner.as_ref() {
+            if let Statement::Public(inner) = &stmt.node {
+                match &inner.node {
                     Statement::FunctionDeclaration {
                         name,
                         parameters,
@@ -198,9 +201,6 @@ impl Interpreter {
                     self.environment.set_const(&name, value)?;
                 }
                 Export::Array { name, value } => {
-                    // value is already a Value::Array from the sibling's
-                    // post-execution state; install it directly rather
-                    // than re-declaring a fresh empty array.
                     self.environment.set(&name, value)?;
                 }
             }
@@ -220,8 +220,8 @@ impl Interpreter {
         }
     }
 
-    fn execute_statement(&mut self, stmt: &Statement) -> Result<ControlFlow, String> {
-        match stmt {
+    fn execute_statement(&mut self, stmt: &Spanned<Statement>) -> Result<ControlFlow, String> {
+        match &stmt.node {
             Statement::Public(inner) => self.execute_statement(inner),
             Statement::Import { .. } => {
                 // Already processed in the run() pre-pass
@@ -386,7 +386,7 @@ impl Interpreter {
 
     /// Executes a block of statements, stopping early and propagating a
     /// RETURN the moment one is hit, rather than running the rest of the block.
-    fn execute_block(&mut self, statements: &[Statement]) -> Result<ControlFlow, String> {
+    fn execute_block(&mut self, statements: &[Spanned<Statement>]) -> Result<ControlFlow, String> {
         for stmt in statements {
             match self.execute_statement(stmt)? {
                 ControlFlow::Normal => {}
@@ -396,7 +396,11 @@ impl Interpreter {
         Ok(ControlFlow::Normal)
     }
 
-    fn call_function(&mut self, name: &str, arguments: &[Expression]) -> Result<Value, String> {
+    fn call_function(
+        &mut self,
+        name: &str,
+        arguments: &[Spanned<Expression>],
+    ) -> Result<Value, String> {
         if let Some(func) = self.functions.get(name).cloned() {
             if arguments.len() != func.parameters.len() {
                 return Err(format!(
@@ -471,9 +475,12 @@ impl Interpreter {
     /// mirrors C's rule that a static can be lexically nested inside a
     /// conditional or loop, while its storage is fixed for the whole
     /// function regardless of whether that branch executes on a given call.
-    fn collect_static_names(body: &[Statement], names: &mut Vec<(String, Expression)>) {
+    fn collect_static_names(
+        body: &[Spanned<Statement>],
+        names: &mut Vec<(String, Spanned<Expression>)>,
+    ) {
         for stmt in body {
-            match stmt {
+            match &stmt.node {
                 Statement::StaticDeclaration { name, expression } => {
                     names.push((name.clone(), expression.clone()));
                 }
@@ -500,8 +507,8 @@ impl Interpreter {
         }
     }
 
-    fn evaluate_expression(&mut self, expr: &Expression) -> Result<Value, String> {
-        match expr {
+    fn evaluate_expression(&mut self, expr: &Spanned<Expression>) -> Result<Value, String> {
+        match &expr.node {
             Expression::Number(n) => Ok(Value::Number(*n)),
             Expression::String(s) => Ok(Value::String(s.clone())),
             Expression::Boolean(b) => Ok(Value::Boolean(*b)),
@@ -670,7 +677,6 @@ impl Interpreter {
     fn value_to_string(&self, value: &Value) -> String {
         match value {
             Value::Number(n) => {
-                // Handle special cases
                 if n.is_nan() {
                     return "NaN".to_string();
                 }
@@ -682,16 +688,11 @@ impl Interpreter {
                     }
                 }
 
-                // Check if it's a whole number
                 if n.fract() == 0.0 {
                     return format!("{:.0}", n);
                 }
 
-                // Use Rust's debug formatting which gives a good balance
-                // or use format with precision based on the value
                 let formatted = format!("{:.12}", n);
-
-                // Remove trailing zeros
                 let trimmed = formatted.trim_end_matches('0').trim_end_matches('.');
 
                 trimmed.to_string()

@@ -1,6 +1,8 @@
 pub mod ast;
 
-use self::ast::{Expression, Operator, OutputValue, Statement, UnaryOperator};
+use self::ast::{
+    Expression, ModuleImport, Operator, OutputValue, Spanned, Statement, UnaryOperator,
+};
 use crate::lexer::{PositionedToken, Token};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -42,10 +44,7 @@ impl Parser {
         }
     }
 
-    /// Parses the program, collecting any errors encountered along the way
-    /// instead of printing them. Returns the parsed statements plus every
-    /// error/warning recorded during parsing.
-    pub fn parse(&mut self) -> (Vec<Statement>, Vec<ParseError>) {
+    pub fn parse(&mut self) -> (Vec<Spanned<Statement>>, Vec<ParseError>) {
         self.skip_newlines();
 
         let imports = self.parse_imports();
@@ -69,9 +68,7 @@ impl Parser {
         (statements, std::mem::take(&mut self.errors))
     }
 
-    /// Consumes zero or more IMPORT statements appearing before START.
-    /// Each IMPORT line becomes one Statement::Import.
-    fn parse_imports(&mut self) -> Vec<Statement> {
+    fn parse_imports(&mut self) -> Vec<Spanned<Statement>> {
         let mut imports = Vec::new();
 
         while self.check(Token::Import) {
@@ -88,7 +85,8 @@ impl Parser {
         imports
     }
 
-    fn parse_import(&mut self) -> Result<Statement, ParseError> {
+    fn parse_import(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
         self.advance(); // Consume IMPORT
 
         let mut modules = Vec::new();
@@ -100,10 +98,10 @@ impl Parser {
         }
 
         self.skip_newlines();
-        Ok(Statement::Import { modules })
+        Ok(Spanned::new(Statement::Import { modules }, line, column))
     }
 
-    fn parse_module_import(&mut self) -> Result<ast::ModuleImport, ParseError> {
+    fn parse_module_import(&mut self) -> Result<ModuleImport, ParseError> {
         let name = if let Token::Identifier(name) = self.current() {
             name.clone()
         } else {
@@ -132,10 +130,10 @@ impl Parser {
             None
         };
 
-        Ok(ast::ModuleImport { name, functions })
+        Ok(ModuleImport { name, functions })
     }
 
-    fn parse_block_statements(&mut self, stop_tokens: &[Token]) -> Vec<Statement> {
+    fn parse_block_statements(&mut self, stop_tokens: &[Token]) -> Vec<Spanned<Statement>> {
         let mut statements = Vec::new();
 
         loop {
@@ -169,7 +167,7 @@ impl Parser {
         tokens.iter().any(|t| t == &current)
     }
 
-    fn parse_statement(&mut self) -> Result<Statement, ParseError> {
+    fn parse_statement(&mut self) -> Result<Spanned<Statement>, ParseError> {
         self.skip_newlines();
 
         if self.is_at_end() {
@@ -188,10 +186,6 @@ impl Parser {
             self.parse_while()
         } else if self.check(Token::Declare) {
             self.parse_declare()
-        } else if self.peek_is_identifier() && self.peek_next_is_assign() {
-            self.parse_assign()
-        } else if self.peek_is_array_access() {
-            self.parse_array_assign()
         } else if self.check(Token::Function) {
             self.parse_function_declaration()
         } else if self.check(Token::Return) {
@@ -200,46 +194,29 @@ impl Parser {
             self.parse_const_declaration()
         } else if self.check(Token::Static) {
             self.parse_static_declaration()
-        } else if self.peek_is_call() {
-            self.parse_expression_statement()
         } else if self.check(Token::Pub) {
             self.parse_public_declaration()
+        } else if self.peek_is_identifier() && self.peek_next_is_assign() {
+            self.parse_assign()
+        } else if self.peek_is_array_access() {
+            self.parse_array_assign()
+        } else if self.peek_is_call() {
+            self.parse_expression_statement()
         } else {
+            let (line, column) = self.current_pos();
             let token = self.current();
-            let err = self.error_at_current(&format!(
-                "Unknown statement starting with: {}",
-                token.to_string()
-            ));
             self.advance();
-            Err(err)
+            Err(ParseError {
+                message: format!("Unknown statement starting with: {}", token.to_string()),
+                line,
+                column,
+                severity: Severity::Error,
+            })
         }
     }
 
-    fn parse_public_declaration(&mut self) -> Result<Statement, ParseError> {
-        self.advance(); // Consume PUB
-
-        let inner = if self.check(Token::Function) {
-            self.parse_function_declaration()?
-        } else if self.check(Token::Declare) {
-            self.parse_declare()?
-        } else if self.check(Token::Const) {
-            self.parse_const_declaration()?
-        } else {
-            return Err(
-                self.error_at_current("PUB can only be used with FUNCTION, DECLARE, or CONST")
-            );
-        };
-
-        Ok(Statement::Public(Box::new(inner)))
-    }
-
-    fn parse_expression_statement(&mut self) -> Result<Statement, ParseError> {
-        let expr = self.parse_expression()?;
-        self.skip_newlines();
-        Ok(Statement::ExpressionStatement(expr))
-    }
-
-    fn parse_input(&mut self) -> Result<Statement, ParseError> {
+    fn parse_input(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
         self.advance();
         self.skip_newlines();
 
@@ -258,10 +235,11 @@ impl Parser {
         }
 
         self.skip_newlines();
-        Ok(Statement::Input { variables })
+        Ok(Spanned::new(Statement::Input { variables }, line, column))
     }
 
-    fn parse_output(&mut self) -> Result<Statement, ParseError> {
+    fn parse_output(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
         self.advance();
         self.skip_newlines();
 
@@ -283,10 +261,11 @@ impl Parser {
         }
 
         self.skip_newlines();
-        Ok(Statement::Output { values })
+        Ok(Spanned::new(Statement::Output { values }, line, column))
     }
 
-    fn parse_assign(&mut self) -> Result<Statement, ParseError> {
+    fn parse_assign(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
         let var_name = if let Token::Identifier(name) = self.current() {
             name.clone()
         } else {
@@ -305,13 +284,18 @@ impl Parser {
         let expr = self.parse_expression()?;
 
         self.skip_newlines();
-        Ok(Statement::Assign {
-            variable: var_name,
-            expression: expr,
-        })
+        Ok(Spanned::new(
+            Statement::Assign {
+                variable: var_name,
+                expression: expr,
+            },
+            line,
+            column,
+        ))
     }
 
-    fn parse_array_assign(&mut self) -> Result<Statement, ParseError> {
+    fn parse_array_assign(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
         let name = if let Token::Identifier(name) = self.current() {
             name.clone()
         } else {
@@ -339,62 +323,19 @@ impl Parser {
         let value = Box::new(self.parse_expression()?);
 
         self.skip_newlines();
-        Ok(Statement::ArrayAssign {
-            name,
-            index: Box::new(index),
-            value,
-        })
+        Ok(Spanned::new(
+            Statement::ArrayAssign {
+                name,
+                index: Box::new(index),
+                value,
+            },
+            line,
+            column,
+        ))
     }
 
-    fn parse_const_declaration(&mut self) -> Result<Statement, ParseError> {
-        self.advance(); // Consume CONST
-
-        let name = if let Token::Identifier(name) = self.current() {
-            name.clone()
-        } else {
-            return Err(self.error_at_current("Expected identifier after CONST"));
-        };
-        self.advance();
-
-        if !self.check(Token::Assign) {
-            return Err(self.error_at_current("Expected = after CONST name"));
-        }
-        self.advance();
-
-        let expr = self.parse_expression()?;
-        self.skip_newlines();
-
-        Ok(Statement::ConstDeclaration {
-            name,
-            expression: expr,
-        })
-    }
-
-    fn parse_static_declaration(&mut self) -> Result<Statement, ParseError> {
-        self.advance(); // Consume STATIC
-
-        let name = if let Token::Identifier(name) = self.current() {
-            name.clone()
-        } else {
-            return Err(self.error_at_current("Expected identifier after STATIC"));
-        };
-        self.advance();
-
-        if !self.check(Token::Assign) {
-            return Err(self.error_at_current("Expected = after STATIC name"));
-        }
-        self.advance();
-
-        let expr = self.parse_expression()?;
-        self.skip_newlines();
-
-        Ok(Statement::StaticDeclaration {
-            name,
-            expression: expr,
-        })
-    }
-
-    fn parse_if(&mut self) -> Result<Statement, ParseError> {
+    fn parse_if(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
         self.advance(); // Consume IF
 
         let condition = self.parse_expression()?;
@@ -439,15 +380,20 @@ impl Parser {
         self.advance(); // Consume ENDIF
         self.skip_newlines();
 
-        Ok(Statement::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        })
+        Ok(Spanned::new(
+            Statement::If {
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+            },
+            line,
+            column,
+        ))
     }
 
-    fn parse_for(&mut self) -> Result<Statement, ParseError> {
+    fn parse_for(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
         self.advance();
         self.skip_newlines();
 
@@ -485,15 +431,20 @@ impl Parser {
         self.advance();
         self.skip_newlines();
 
-        Ok(Statement::ForLoop {
-            variable,
-            start,
-            end,
-            body,
-        })
+        Ok(Spanned::new(
+            Statement::ForLoop {
+                variable,
+                start,
+                end,
+                body,
+            },
+            line,
+            column,
+        ))
     }
 
-    fn parse_while(&mut self) -> Result<Statement, ParseError> {
+    fn parse_while(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
         self.advance();
         self.skip_newlines();
 
@@ -508,10 +459,15 @@ impl Parser {
         self.advance();
         self.skip_newlines();
 
-        Ok(Statement::WhileLoop { condition, body })
+        Ok(Spanned::new(
+            Statement::WhileLoop { condition, body },
+            line,
+            column,
+        ))
     }
 
-    fn parse_declare(&mut self) -> Result<Statement, ParseError> {
+    fn parse_declare(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
         self.advance();
         self.skip_newlines();
 
@@ -540,14 +496,19 @@ impl Parser {
         self.advance();
 
         self.skip_newlines();
-        Ok(Statement::DeclareArray { name, size })
+        Ok(Spanned::new(
+            Statement::DeclareArray { name, size },
+            line,
+            column,
+        ))
     }
 
-    fn parse_expression(&mut self) -> Result<Expression, ParseError> {
+    fn parse_expression(&mut self) -> Result<Spanned<Expression>, ParseError> {
         self.parse_or()
     }
 
-    fn parse_function_declaration(&mut self) -> Result<Statement, ParseError> {
+    fn parse_function_declaration(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
         self.advance(); // Consume FUNCTION
 
         let name = if let Token::Identifier(name) = self.current() {
@@ -594,59 +555,175 @@ impl Parser {
         self.advance();
         self.skip_newlines();
 
-        Ok(Statement::FunctionDeclaration {
-            name,
-            parameters,
-            body,
-        })
+        Ok(Spanned::new(
+            Statement::FunctionDeclaration {
+                name,
+                parameters,
+                body,
+            },
+            line,
+            column,
+        ))
     }
 
-    fn parse_return(&mut self) -> Result<Statement, ParseError> {
+    fn parse_return(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
         self.advance(); // Consume RETURN
 
         if self.is_at_end() || self.check(Token::Newline) {
             self.skip_newlines();
-            return Ok(Statement::Return { value: None });
+            return Ok(Spanned::new(
+                Statement::Return { value: None },
+                line,
+                column,
+            ));
         }
 
         let expr = self.parse_expression()?;
         self.skip_newlines();
-        Ok(Statement::Return { value: Some(expr) })
+        Ok(Spanned::new(
+            Statement::Return { value: Some(expr) },
+            line,
+            column,
+        ))
     }
 
-    fn parse_or(&mut self) -> Result<Expression, ParseError> {
+    fn parse_const_declaration(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
+        self.advance(); // Consume CONST
+
+        let name = if let Token::Identifier(name) = self.current() {
+            name.clone()
+        } else {
+            return Err(self.error_at_current("Expected identifier after CONST"));
+        };
+        self.advance();
+
+        if !self.check(Token::Assign) {
+            return Err(self.error_at_current("Expected = after CONST name"));
+        }
+        self.advance();
+
+        let expr = self.parse_expression()?;
+        self.skip_newlines();
+
+        Ok(Spanned::new(
+            Statement::ConstDeclaration {
+                name,
+                expression: expr,
+            },
+            line,
+            column,
+        ))
+    }
+
+    fn parse_static_declaration(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
+        self.advance(); // Consume STATIC
+
+        let name = if let Token::Identifier(name) = self.current() {
+            name.clone()
+        } else {
+            return Err(self.error_at_current("Expected identifier after STATIC"));
+        };
+        self.advance();
+
+        if !self.check(Token::Assign) {
+            return Err(self.error_at_current("Expected = after STATIC name"));
+        }
+        self.advance();
+
+        let expr = self.parse_expression()?;
+        self.skip_newlines();
+
+        Ok(Spanned::new(
+            Statement::StaticDeclaration {
+                name,
+                expression: expr,
+            },
+            line,
+            column,
+        ))
+    }
+
+    fn parse_public_declaration(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
+        self.advance(); // Consume PUB
+
+        let inner = if self.check(Token::Function) {
+            self.parse_function_declaration()?
+        } else if self.check(Token::Declare) {
+            self.parse_declare()?
+        } else if self.check(Token::Const) {
+            self.parse_const_declaration()?
+        } else {
+            return Err(
+                self.error_at_current("PUB can only be used with FUNCTION, DECLARE, or CONST")
+            );
+        };
+
+        Ok(Spanned::new(
+            Statement::Public(Box::new(inner)),
+            line,
+            column,
+        ))
+    }
+
+    fn parse_expression_statement(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
+        let expr = self.parse_expression()?;
+        self.skip_newlines();
+        Ok(Spanned::new(
+            Statement::ExpressionStatement(expr),
+            line,
+            column,
+        ))
+    }
+
+    fn parse_or(&mut self) -> Result<Spanned<Expression>, ParseError> {
+        let (line, column) = self.current_pos();
         let mut left = self.parse_and()?;
 
         while self.check(Token::Or) {
             self.advance();
             let right = self.parse_and()?;
-            left = Expression::BinaryOp {
-                left: Box::new(left),
-                operator: Operator::Or,
-                right: Box::new(right),
-            };
+            left = Spanned::new(
+                Expression::BinaryOp {
+                    left: Box::new(left),
+                    operator: Operator::Or,
+                    right: Box::new(right),
+                },
+                line,
+                column,
+            );
         }
 
         Ok(left)
     }
 
-    fn parse_and(&mut self) -> Result<Expression, ParseError> {
+    fn parse_and(&mut self) -> Result<Spanned<Expression>, ParseError> {
+        let (line, column) = self.current_pos();
         let mut left = self.parse_comparison()?;
 
         while self.check(Token::And) {
             self.advance();
             let right = self.parse_comparison()?;
-            left = Expression::BinaryOp {
-                left: Box::new(left),
-                operator: Operator::And,
-                right: Box::new(right),
-            };
+            left = Spanned::new(
+                Expression::BinaryOp {
+                    left: Box::new(left),
+                    operator: Operator::And,
+                    right: Box::new(right),
+                },
+                line,
+                column,
+            );
         }
 
         Ok(left)
     }
 
-    fn parse_comparison(&mut self) -> Result<Expression, ParseError> {
+    fn parse_comparison(&mut self) -> Result<Spanned<Expression>, ParseError> {
+        let (line, column) = self.current_pos();
         let mut left = self.parse_addition()?;
 
         loop {
@@ -662,17 +739,22 @@ impl Parser {
             };
             self.advance();
             let right = self.parse_addition()?;
-            left = Expression::BinaryOp {
-                left: Box::new(left),
-                operator: op,
-                right: Box::new(right),
-            };
+            left = Spanned::new(
+                Expression::BinaryOp {
+                    left: Box::new(left),
+                    operator: op,
+                    right: Box::new(right),
+                },
+                line,
+                column,
+            );
         }
 
         Ok(left)
     }
 
-    fn parse_addition(&mut self) -> Result<Expression, ParseError> {
+    fn parse_addition(&mut self) -> Result<Spanned<Expression>, ParseError> {
+        let (line, column) = self.current_pos();
         let mut left = self.parse_multiplication()?;
 
         loop {
@@ -683,17 +765,22 @@ impl Parser {
             };
             self.advance();
             let right = self.parse_multiplication()?;
-            left = Expression::BinaryOp {
-                left: Box::new(left),
-                operator: op,
-                right: Box::new(right),
-            };
+            left = Spanned::new(
+                Expression::BinaryOp {
+                    left: Box::new(left),
+                    operator: op,
+                    right: Box::new(right),
+                },
+                line,
+                column,
+            );
         }
 
         Ok(left)
     }
 
-    fn parse_multiplication(&mut self) -> Result<Expression, ParseError> {
+    fn parse_multiplication(&mut self) -> Result<Spanned<Expression>, ParseError> {
+        let (line, column) = self.current_pos();
         let mut left = self.parse_modulo()?;
 
         loop {
@@ -704,85 +791,110 @@ impl Parser {
             };
             self.advance();
             let right = self.parse_modulo()?;
-            left = Expression::BinaryOp {
-                left: Box::new(left),
-                operator: op,
-                right: Box::new(right),
-            };
+            left = Spanned::new(
+                Expression::BinaryOp {
+                    left: Box::new(left),
+                    operator: op,
+                    right: Box::new(right),
+                },
+                line,
+                column,
+            );
         }
 
         Ok(left)
     }
 
-    fn parse_modulo(&mut self) -> Result<Expression, ParseError> {
+    fn parse_modulo(&mut self) -> Result<Spanned<Expression>, ParseError> {
+        let (line, column) = self.current_pos();
         let mut left = self.parse_power()?;
 
         while self.check(Token::Percent) {
             self.advance();
             let right = self.parse_power()?;
-            left = Expression::BinaryOp {
-                left: Box::new(left),
-                operator: Operator::Modulo,
-                right: Box::new(right),
-            };
+            left = Spanned::new(
+                Expression::BinaryOp {
+                    left: Box::new(left),
+                    operator: Operator::Modulo,
+                    right: Box::new(right),
+                },
+                line,
+                column,
+            );
         }
 
         Ok(left)
     }
 
-    fn parse_power(&mut self) -> Result<Expression, ParseError> {
+    fn parse_power(&mut self) -> Result<Spanned<Expression>, ParseError> {
+        let (line, column) = self.current_pos();
         let mut left = self.parse_unary()?;
 
         while self.check(Token::Caret) {
             self.advance();
             let right = self.parse_unary()?;
-            left = Expression::BinaryOp {
-                left: Box::new(left),
-                operator: Operator::Power,
-                right: Box::new(right),
-            };
+            left = Spanned::new(
+                Expression::BinaryOp {
+                    left: Box::new(left),
+                    operator: Operator::Power,
+                    right: Box::new(right),
+                },
+                line,
+                column,
+            );
         }
 
         Ok(left)
     }
 
-    fn parse_unary(&mut self) -> Result<Expression, ParseError> {
+    fn parse_unary(&mut self) -> Result<Spanned<Expression>, ParseError> {
+        let (line, column) = self.current_pos();
+
         if self.check(Token::Minus) {
             self.advance();
             let expr = self.parse_unary()?;
-            return Ok(Expression::UnaryOp {
-                operator: UnaryOperator::Negate,
-                expr: Box::new(expr),
-            });
+            return Ok(Spanned::new(
+                Expression::UnaryOp {
+                    operator: UnaryOperator::Negate,
+                    expr: Box::new(expr),
+                },
+                line,
+                column,
+            ));
         }
 
         if self.check(Token::Not) {
             self.advance();
             let expr = self.parse_unary()?;
-            return Ok(Expression::UnaryOp {
-                operator: UnaryOperator::Not,
-                expr: Box::new(expr),
-            });
+            return Ok(Spanned::new(
+                Expression::UnaryOp {
+                    operator: UnaryOperator::Not,
+                    expr: Box::new(expr),
+                },
+                line,
+                column,
+            ));
         }
 
         self.parse_primary()
     }
 
-    fn parse_primary(&mut self) -> Result<Expression, ParseError> {
+    fn parse_primary(&mut self) -> Result<Spanned<Expression>, ParseError> {
         self.skip_newlines();
+        let (line, column) = self.current_pos();
 
         match self.current() {
             Token::Number(n) => {
                 self.advance();
-                Ok(Expression::Number(n))
+                Ok(Spanned::new(Expression::Number(n), line, column))
             }
             Token::StringLiteral(s) => {
                 self.advance();
-                Ok(Expression::String(s.clone()))
+                Ok(Spanned::new(Expression::String(s.clone()), line, column))
             }
             Token::Boolean(b) => {
                 self.advance();
-                Ok(Expression::Boolean(b))
+                Ok(Spanned::new(Expression::Boolean(b), line, column))
             }
             Token::LeftBracket => {
                 self.advance();
@@ -795,7 +907,11 @@ impl Parser {
                     }
                 }
                 self.advance(); // Consume ]
-                Ok(Expression::ArrayLiteral(elements))
+                Ok(Spanned::new(
+                    Expression::ArrayLiteral(elements),
+                    line,
+                    column,
+                ))
             }
             Token::LeftParen => {
                 self.advance();
@@ -815,10 +931,14 @@ impl Parser {
                         return Err(self.error_at_current("Expected ]"));
                     }
                     self.advance();
-                    Ok(Expression::ArrayAccess {
-                        name: name.clone(),
-                        index: Box::new(index),
-                    })
+                    Ok(Spanned::new(
+                        Expression::ArrayAccess {
+                            name: name.clone(),
+                            index: Box::new(index),
+                        },
+                        line,
+                        column,
+                    ))
                 } else if self.check(Token::LeftParen) {
                     self.advance();
                     let mut arguments = Vec::new();
@@ -829,12 +949,20 @@ impl Parser {
                         }
                     }
                     self.advance(); // Consume )
-                    Ok(Expression::FunctionCall {
-                        name: name.clone(),
-                        arguments,
-                    })
+                    Ok(Spanned::new(
+                        Expression::FunctionCall {
+                            name: name.clone(),
+                            arguments,
+                        },
+                        line,
+                        column,
+                    ))
                 } else {
-                    Ok(Expression::Identifier(name.clone()))
+                    Ok(Spanned::new(
+                        Expression::Identifier(name.clone()),
+                        line,
+                        column,
+                    ))
                 }
             }
             token => {
@@ -928,6 +1056,7 @@ impl Parser {
         }
         false
     }
+
     fn peek_is_call(&self) -> bool {
         if self.position + 1 < self.tokens.len() {
             if let Token::Identifier(_) = self.current() {

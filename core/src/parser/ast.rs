@@ -1,17 +1,21 @@
-#[derive(Debug, Clone)]
-pub struct ModuleImport {
-    pub name: String,
-    pub functions: Option<Vec<String>>, // None = import everything
+#[derive(Debug, Clone, PartialEq)]
+pub struct Spanned<T> {
+    pub node: T,
+    pub line: usize,
+    pub column: usize,
+}
+
+impl<T> Spanned<T> {
+    pub fn new(node: T, line: usize, column: usize) -> Self {
+        Spanned { node, line, column }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub enum Statement {
-    Import {
-        modules: Vec<ModuleImport>,
-    },
     Assign {
         variable: String,
-        expression: Expression,
+        expression: Spanned<Expression>,
     },
     Input {
         variables: Vec<String>,
@@ -20,20 +24,20 @@ pub enum Statement {
         values: Vec<OutputValue>,
     },
     If {
-        condition: Expression,
-        then_branch: Vec<Statement>,
-        else_if_branches: Vec<(Expression, Vec<Statement>)>,
-        else_branch: Vec<Statement>,
+        condition: Spanned<Expression>,
+        then_branch: Vec<Spanned<Statement>>,
+        else_if_branches: Vec<(Spanned<Expression>, Vec<Spanned<Statement>>)>,
+        else_branch: Vec<Spanned<Statement>>,
     },
     ForLoop {
         variable: String,
-        start: Expression,
-        end: Expression,
-        body: Vec<Statement>,
+        start: Spanned<Expression>,
+        end: Spanned<Expression>,
+        body: Vec<Spanned<Statement>>,
     },
     WhileLoop {
-        condition: Expression,
-        body: Vec<Statement>,
+        condition: Spanned<Expression>,
+        body: Vec<Spanned<Statement>>,
     },
     DeclareArray {
         name: String,
@@ -41,27 +45,30 @@ pub enum Statement {
     },
     ArrayAssign {
         name: String,
-        index: Box<Expression>,
-        value: Box<Expression>,
+        index: Box<Spanned<Expression>>,
+        value: Box<Spanned<Expression>>,
     },
     FunctionDeclaration {
         name: String,
         parameters: Vec<String>,
-        body: Vec<Statement>,
+        body: Vec<Spanned<Statement>>,
+    },
+    Return {
+        value: Option<Spanned<Expression>>,
+    },
+    Import {
+        modules: Vec<ModuleImport>,
     },
     ConstDeclaration {
         name: String,
-        expression: Expression,
+        expression: Spanned<Expression>,
     },
     StaticDeclaration {
         name: String,
-        expression: Expression,
+        expression: Spanned<Expression>,
     },
-    ExpressionStatement(Expression),
-    Public(Box<Statement>),
-    Return {
-        value: Option<Expression>,
-    },
+    ExpressionStatement(Spanned<Expression>),
+    Public(Box<Spanned<Statement>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -72,21 +79,21 @@ pub enum Expression {
     Identifier(String),
     ArrayAccess {
         name: String,
-        index: Box<Expression>,
+        index: Box<Spanned<Expression>>,
     },
-    ArrayLiteral(Vec<Expression>),
+    ArrayLiteral(Vec<Spanned<Expression>>),
+    FunctionCall {
+        name: String,
+        arguments: Vec<Spanned<Expression>>,
+    },
     BinaryOp {
-        left: Box<Expression>,
+        left: Box<Spanned<Expression>>,
         operator: Operator,
-        right: Box<Expression>,
+        right: Box<Spanned<Expression>>,
     },
     UnaryOp {
         operator: UnaryOperator,
-        expr: Box<Expression>,
-    },
-    FunctionCall {
-        name: String,
-        arguments: Vec<Expression>,
+        expr: Box<Spanned<Expression>>,
     },
 }
 
@@ -116,6 +123,12 @@ pub enum UnaryOperator {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum OutputValue {
-    Expression(Expression),
+    Expression(Spanned<Expression>),
     StringLiteral(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct ModuleImport {
+    pub name: String,
+    pub functions: Option<Vec<String>>,
 }
