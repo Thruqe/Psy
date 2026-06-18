@@ -1,35 +1,68 @@
-# Pseudocode Interpreter (psc)
+<p align="center">
+  <strong>The Psy Programming Language</strong><br>
+  <em>(Parsable Syntax for You)</em>
+</p>
 
-A super simple and fast interpreter for executing pseudocode written in a custom educational language. This interpreter lexes, parses, and evaluates pseudocode programs, making it ideal for learning programming concepts and algorithm visualization.
+<p align="center">
+  <em>A super simple and fast interpreter for executing pseudocode written in a custom educational language.</em>
+</p>
 
-[**_Syntax Examples_**](./examples/)
+<p align="center">
+  This interpreter lexes, parses, and evaluates pseudocode programs, making it ideal for learning programming concepts and algorithm visualization.
+</p>
 
-[**_Core System_**](./core/)
+<p align="center">
+  <a href="./examples/">Syntax Examples</a> · 
+  <a href="./core/">Core System</a> · 
+  <a href="./checker/">Syntax Checker</a> · 
+  <a href="./lsp/">Language Server</a> · 
+  <a href="./modules/">Native Modules</a>
+</p>
 
-[**_Syntax Checker_**](./checker/)
-
-[**_Language Server_**](./lsp/)
-
-[**_Native Modules_**](./modules/)
+---
 
 ## Features
 
-- **Complete Interpreter Pipeline**: Lexer → Parser → Evaluator
-- **Rich Language Features**:
-  - Variables and data types (integers, floats, strings, booleans)
-  - Arrays and array operations
-  - Control flow (if/else, loops)
-  - Functions and procedures
-  - Input/Output operations
-  - Mathematical operations
-  - Logical operators and comparisons
-- **Debugging Support**: Built-in debug mode for step-by-step execution
-- **Clear Error Messages**: Informative syntax and runtime error reporting
-- **Educational**: Designed for teaching programming concepts
+### Core Interpreter Pipeline
+- **Lexer**: Scans source code and converts it into a stream of tokens
+- **Parser**: Builds an Abstract Syntax Tree (AST) from the token stream
+- **Evaluator**: Walks the AST and executes the program logic
+- **Error Reporting**: Syntax and runtime errors with line numbers and helpful messages
+
+### Language Constructs
+- **Program Structure**: Programs are wrapped in `START` and `END` blocks
+- **Variables**: Declared using `DECLARE` followed by the variable name and optional array size
+- **Data Types**: Integers, floats, strings, and booleans
+- **Arrays**: Declared with size (e.g., `DECLARE scores[5]`) and accessed via index (e.g., `scores[0]`)
+- **Assignment**: Variables and array elements assigned using `=`
+- **Control Flow**: `FOR` loops with `TO` syntax (e.g., `FOR i = 0 TO 4`) and `ENDFOR`
+- **Input/Output**: `OUTPUT` for console output
+- **Arithmetic**: Standard mathematical operations (`+`, `-`, `*`, `/`, `%`)
+- **Comparisons**: Equality and relational operators (`==`, `!=`, `<`, `>`, `<=`, `>=`)
+- **Logical Operators**: Boolean logic (`AND`, `OR`, `NOT`)
+
+### Debugging
+- Built-in debug mode for tracing execution step by step
+- Variable state inspection during runtime
+
+### Educational Focus
+- Designed specifically for teaching fundamental programming concepts
+- Syntax mirrors common pseudocode conventions used in textbooks
+- Clear, beginner-friendly error messages to aid learning
+
+### Modular Architecture
+- **Core System**: The main interpreter engine
+- **Syntax Checker**: Validates code structure before execution
+- **Language Server**: Provides IDE integration (autocomplete, diagnostics)
+- **Native Modules**: Extend functionality with external modules
+
+---
 
 ## Contributing
 
 Contributions are welcome! Feel free to open issues, submit pull requests, or suggest improvements.
+
+---
 
 ## License
 
