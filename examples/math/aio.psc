@@ -1,4 +1,4 @@
-IMPORT _MATH[ALL]
+IMPORT _MATH
 
 START
     // All math functions available

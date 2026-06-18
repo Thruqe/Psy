@@ -264,6 +264,55 @@ fn math_module() -> NativeModule {
             arity: Arity::Exact(2),
         },
     );
+    functions.insert(
+        "ASIN",
+        NativeFunctionInfo {
+            func: pseudocode_math::asin,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "ACOS",
+        NativeFunctionInfo {
+            func: pseudocode_math::acos,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "ATAN",
+        NativeFunctionInfo {
+            func: pseudocode_math::atan,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "LOG",
+        NativeFunctionInfo {
+            func: pseudocode_math::log,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "LOG10",
+        NativeFunctionInfo {
+            func: pseudocode_math::log10,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "EXP",
+        NativeFunctionInfo {
+            func: pseudocode_math::exp,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "FACTORIAL",
+        NativeFunctionInfo {
+            func: pseudocode_math::factorial,
+            arity: Arity::Exact(1),
+        },
+    );
 
     let mut constants: HashMap<&'static str, Value> = HashMap::new();
     constants.insert("PI", pseudocode_math::pi());

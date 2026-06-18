@@ -797,6 +797,15 @@ impl Parser {
                 self.advance(); // Consume ]
                 Ok(Expression::ArrayLiteral(elements))
             }
+            Token::LeftParen => {
+                self.advance();
+                let expr = self.parse_expression()?;
+                if !self.check(Token::RightParen) {
+                    return Err(self.error_at_current("Expected )"));
+                }
+                self.advance();
+                Ok(expr)
+            }
             Token::Identifier(name) => {
                 self.advance();
                 if self.check(Token::LeftBracket) {

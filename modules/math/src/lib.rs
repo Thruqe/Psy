@@ -3,7 +3,10 @@ mod algebra;
 mod ceil;
 mod constants;
 mod cos;
+mod exp;
+mod factorial;
 mod floor;
+mod log;
 mod matrix;
 mod matrix_ops;
 mod max;
@@ -19,6 +22,7 @@ mod sqrt;
 mod stddev;
 mod sum;
 mod tan;
+mod trig_extra;
 mod variance;
 mod vector_ops;
 
@@ -28,7 +32,10 @@ pub use ceil::ceil;
 pub use constants::e;
 pub use constants::pi;
 pub use cos::cos;
+pub use exp::exp;
+pub use factorial::factorial;
 pub use floor::floor;
+pub use log::{log, log10};
 pub use matrix_ops::{
     matrix_add, matrix_determinant, matrix_inverse, matrix_multiply, matrix_transpose,
 };
@@ -45,6 +52,7 @@ pub use sqrt::sqrt;
 pub use stddev::stddev;
 pub use sum::sum;
 pub use tan::tan;
+pub use trig_extra::{acos, asin, atan};
 pub use variance::variance;
 pub use vector_ops::{cross, dot};
 
