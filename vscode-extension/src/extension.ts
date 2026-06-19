@@ -10,7 +10,6 @@ import {
 let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
-    // Looks for the binary target compiled by cargo build
     const serverModule = context.asAbsolutePath(
         path.join('..', 'target', 'release', 'lsp')
     );

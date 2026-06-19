@@ -69,6 +69,8 @@ struct DocumentState {
 pub struct Backend {
     client: Client,
     documents: Arc<Mutex<HashMap<Url, DocumentState>>>,
+    global_exports:
+        Arc<Mutex<HashMap<String, (InferredType, Vec<(String, InferredType)>, String)>>>,
 }
 
 const KEYWORDS: &[(&str, StaticSymbol)] = &[
@@ -395,6 +397,38 @@ impl LanguageServer for Backend {
             }));
         }
 
+        {
+            let exports = self.global_exports.lock().await;
+            if let Some((ret_type, params, kind_str)) = exports.get(&word) {
+                let hover_text = if kind_str == "FUNCTION" {
+                    let param_strs: Vec<String> = params
+                        .iter()
+                        .map(|(p, t)| format!("{} {}", p, t.to_str()))
+                        .collect();
+                    format!(
+                        "```psy\nPUB FUNCTION {}({}) -> {}\n```\n\n*Shared Foreign Export*",
+                        word,
+                        param_strs.join(", "),
+                        ret_type.to_str()
+                    )
+                } else {
+                    format!(
+                        "**{}** — Shared Foreign `PUB {}` Export\n\nType: `{}`",
+                        word,
+                        kind_str,
+                        ret_type.to_str()
+                    )
+                };
+                return Ok(Some(Hover {
+                    contents: HoverContents::Markup(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value: hover_text,
+                    }),
+                    range: Some(range),
+                }));
+            }
+        }
+
         let upper_word = word.to_uppercase();
         if let Some((_, info)) = KEYWORDS.iter().find(|(k, _)| *k == upper_word) {
             let content = format!(
@@ -521,6 +555,30 @@ impl LanguageServer for Backend {
             }
         }
 
+        {
+            let exports = self.global_exports.lock().await;
+            for (exp_name, (ret_type, _, kind_str)) in exports.iter() {
+                if !doc_state.variable_types.contains_key(exp_name) {
+                    let item_kind = match kind_str.as_str() {
+                        "FUNCTION" => CompletionItemKind::FUNCTION,
+                        "CONST" => CompletionItemKind::CONSTANT,
+                        "STATIC" => CompletionItemKind::VARIABLE,
+                        _ => CompletionItemKind::REFERENCE,
+                    };
+                    items.push(CompletionItem {
+                        label: exp_name.clone(),
+                        kind: Some(item_kind),
+                        detail: Some(format!(
+                            "Global PUB {} (Type: {})",
+                            kind_str,
+                            ret_type.to_str()
+                        )),
+                        ..Default::default()
+                    });
+                }
+            }
+        }
+
         for symbol in &doc_state.symbols {
             let kind = match &symbol.kind {
                 syntax::symbols::SymbolKind::Function { .. } => CompletionItemKind::FUNCTION,
@@ -555,7 +613,63 @@ impl Backend {
             diagnostics: Vec::new(),
         };
 
+        {
+            let exports = self.global_exports.lock().await;
+            for (exp_name, (ret_type, params, _)) in exports.iter() {
+                ctx.variable_types
+                    .insert(exp_name.clone(), ret_type.clone());
+                ctx.function_returns
+                    .insert(exp_name.clone(), ret_type.clone());
+                ctx.function_params.insert(exp_name.clone(), params.clone());
+            }
+        }
+
         walk_statements(&ast, &mut ctx);
+
+        {
+            let mut exports = self.global_exports.lock().await;
+            for spanned_stmt in &ast {
+                if let Statement::Public(inner_stmt) = &spanned_stmt.node {
+                    match &inner_stmt.node {
+                        Statement::FunctionDeclaration {
+                            name,
+                            parameters,
+                            return_type,
+                            body: _,
+                        } => {
+                            let ret = match return_type {
+                                Some(t) => InferredType::from_str(t),
+                                None => InferredType::Void,
+                            };
+                            let params_mappings = parameters
+                                .iter()
+                                .map(|p| {
+                                    let t = p
+                                        .data_type
+                                        .as_ref()
+                                        .map(|s| InferredType::from_str(s))
+                                        .unwrap_or(InferredType::Unknown);
+                                    (p.name.clone(), t)
+                                })
+                                .collect();
+                            exports.insert(
+                                name.clone(),
+                                (ret, params_mappings, "FUNCTION".to_string()),
+                            );
+                        }
+                        Statement::ConstDeclaration { name, expression } => {
+                            let t = infer_expression_type(&expression.node, &ctx);
+                            exports.insert(name.clone(), (t, Vec::new(), "CONST".to_string()));
+                        }
+                        Statement::StaticDeclaration { name, expression } => {
+                            let t = infer_expression_type(&expression.node, &ctx);
+                            exports.insert(name.clone(), (t, Vec::new(), "STATIC".to_string()));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
 
         let mut lsp_diagnostics: Vec<Diagnostic> =
             diagnostics.iter().map(|d| convert_diagnostic(d)).collect();
@@ -888,6 +1002,17 @@ fn walk_expression(expr: &Expression, ctx: &mut SemanticContext) {
                         }
                     }
                 }
+            } else {
+                ctx.diagnostics.push(Diagnostic {
+                    range: Range {
+                        start: Position { line: 0, character: 0 },
+                        end: Position { line: 0, character: 0 },
+                    },
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    source: Some("psy-analysis".to_string()),
+                    message: format!("Unresolved Symbol Error: Call reference '{}' does not match any local or foreign PUB declarations.", name),
+                    ..Default::default()
+                });
             }
         }
         Expression::BinaryOp {
@@ -1171,6 +1296,7 @@ async fn main() {
     let (service, socket) = LspService::new(|client| Backend {
         client,
         documents: Arc::new(Mutex::new(HashMap::new())),
+        global_exports: Arc::new(Mutex::new(HashMap::new())),
     });
     Server::new(stdin, stdout, socket).serve(service).await;
 }
