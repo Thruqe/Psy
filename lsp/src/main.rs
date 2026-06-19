@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
-use psy_checker::symbols::{Symbol, SymbolKind};
-use psy_checker::{Diagnostic as PsyDiagnostic, Severity as PsySeverity};
+use syntax::symbols::{Symbol, SymbolKind};
+use syntax::{Diagnostic as PsyDiagnostic, Severity as PsySeverity};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
@@ -93,7 +93,7 @@ impl LanguageServer for Backend {
                 ..Default::default()
             },
             server_info: Some(ServerInfo {
-                name: "psy-lsp".to_string(),
+                name: "lsp".to_string(),
                 version: Some(env!("CARGO_PKG_VERSION").to_string()),
             }),
         })
@@ -101,7 +101,7 @@ impl LanguageServer for Backend {
 
     async fn initialized(&self, _: InitializedParams) {
         self.client
-            .log_message(MessageType::INFO, "psy-lsp initialized")
+            .log_message(MessageType::INFO, "lsp initialized")
             .await;
     }
 
@@ -303,8 +303,8 @@ impl LanguageServer for Backend {
 
 impl Backend {
     async fn check_and_publish(&self, uri: &Url, source: &str) {
-        let psy_diagnostics = psy_checker::check(source);
-        let mut lsp_diagnostics: Vec<Diagnostic> = psy_diagnostics
+        let diagnostics = syntax::check(source);
+        let mut lsp_diagnostics: Vec<Diagnostic> = diagnostics
             .iter()
             .map(|d| convert_diagnostic(d))
             .collect();
@@ -330,7 +330,7 @@ impl Backend {
                             severity: Some(DiagnosticSeverity::WARNING),
                             code: None,
                             code_description: None,
-                            source: Some("psy-lsp".to_string()),
+                            source: Some("lsp".to_string()),
                             message: format!(
                                 "Imported '{}' from {} is never used",
                                 symbol.name, module
@@ -353,7 +353,7 @@ impl Backend {
 /// Analyzes a document by running the real parser and collecting symbols
 /// from the AST — no regex, no fragile text scanning.
 fn analyze_document(content: &str) -> DocumentState {
-    let symbols = psy_checker::symbols(content);
+    let symbols = syntax::symbols(content);
 
     let mut imported_names: HashMap<String, String> = HashMap::new();
     let mut used_names = std::collections::HashSet::new();
@@ -532,7 +532,7 @@ fn convert_diagnostic(d: &PsyDiagnostic) -> Diagnostic {
         severity: Some(severity),
         code: None,
         code_description: None,
-        source: Some("psy-checker".to_string()),
+        source: Some("syntax".to_string()),
         message,
         related_information: None,
         tags: None,

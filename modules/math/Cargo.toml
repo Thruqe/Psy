@@ -1,7 +1,0 @@
-[package]
-name = "psy-math"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-psy-types = { path = "../../types" }

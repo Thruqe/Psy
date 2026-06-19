@@ -14,9 +14,9 @@
 <p align="center">
   <a href="./examples/">Syntax Examples</a> · 
   <a href="./core/">Core System</a> · 
-  <a href="./checker/">Syntax Checker</a> · 
+  <a href="./syntax/">Syntax syntax</a> · 
   <a href="./lsp/">Language Server</a> · 
-  <a href="./modules/">Native Modules</a>
+  <a href="./crates/">Native Modules</a>
 </p>
 
 ## Features
@@ -53,7 +53,7 @@
 
 ### Modular Architecture
 - **Core System**: The main interpreter engine
-- **Syntax Checker**: Validates code structure before execution
+- **Syntax syntax**: Validates code structure before execution
 - **Language Server**: Provides IDE integration (autocomplete, diagnostics)
 - **Native Modules**: Extend functionality with external modules
 

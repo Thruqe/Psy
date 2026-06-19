@@ -112,12 +112,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "core"
+version = "0.1.0"
+dependencies = [
+ "crypto",
+ "fs",
+ "math",
+ "time",
+ "types",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59ed5838eebb26a2bb2e58f6d5b5316989ae9d08bab10e0e6d103e656d1b0280"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "crypto"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "base64",
+ "cbc",
+ "hex",
+ "hmac",
+ "rand",
+ "sha2",
+ "types",
 ]
 
 [[package]]
@@ -182,6 +207,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
 dependencies = [
  "percent-encoding",
+]
+
+[[package]]
+name = "fs"
+version = "0.1.0"
+dependencies = [
+ "types",
 ]
 
 [[package]]
@@ -449,6 +481,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "lsp"
+version = "0.1.0"
+dependencies = [
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
+ "syntax",
+ "tokio",
+ "tower-lsp",
+]
+
+[[package]]
 name = "lsp-types"
 version = "0.94.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -459,6 +504,13 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "url",
+]
+
+[[package]]
+name = "math"
+version = "0.1.0"
+dependencies = [
+ "types",
 ]
 
 [[package]]
@@ -570,79 +622,9 @@ dependencies = [
 name = "psy"
 version = "0.1.0"
 dependencies = [
- "psy-checker",
- "psy-core",
+ "core",
+ "syntax",
 ]
-
-[[package]]
-name = "psy-checker"
-version = "0.1.0"
-dependencies = [
- "psy-core",
-]
-
-[[package]]
-name = "psy-core"
-version = "0.1.0"
-dependencies = [
- "psy-crypto",
- "psy-fs",
- "psy-math",
- "psy-time",
- "psy-types",
-]
-
-[[package]]
-name = "psy-crypto"
-version = "0.1.0"
-dependencies = [
- "aes",
- "base64",
- "cbc",
- "hex",
- "hmac",
- "psy-types",
- "rand",
- "sha2",
-]
-
-[[package]]
-name = "psy-fs"
-version = "0.1.0"
-dependencies = [
- "psy-types",
-]
-
-[[package]]
-name = "psy-lsp"
-version = "0.1.0"
-dependencies = [
- "once_cell",
- "psy-checker",
- "regex",
- "serde",
- "serde_json",
- "tokio",
- "tower-lsp",
-]
-
-[[package]]
-name = "psy-math"
-version = "0.1.0"
-dependencies = [
- "psy-types",
-]
-
-[[package]]
-name = "psy-time"
-version = "0.1.0"
-dependencies = [
- "psy-types",
-]
-
-[[package]]
-name = "psy-types"
-version = "0.1.0"
 
 [[package]]
 name = "quote"
@@ -859,6 +841,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "syntax"
+version = "0.1.0"
+dependencies = [
+ "core",
+]
+
+[[package]]
+name = "time"
+version = "0.1.0"
+dependencies = [
+ "types",
+]
+
+[[package]]
 name = "tinystr"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1005,6 +1001,10 @@ name = "typenum"
 version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
+
+[[package]]
+name = "types"
+version = "0.1.0"
 
 [[package]]
 name = "unicode-ident"

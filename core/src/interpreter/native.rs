@@ -74,252 +74,252 @@ fn math_module() -> NativeModule {
     functions.insert(
         "SIN",
         NativeFunctionInfo {
-            func: psy_math::sin,
+            func: math::sin,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "COS",
         NativeFunctionInfo {
-            func: psy_math::cos,
+            func: math::cos,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "TAN",
         NativeFunctionInfo {
-            func: psy_math::tan,
+            func: math::tan,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "SQRT",
         NativeFunctionInfo {
-            func: psy_math::sqrt,
+            func: math::sqrt,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "POW",
         NativeFunctionInfo {
-            func: psy_math::pow,
+            func: math::pow,
             arity: Arity::Exact(2),
         },
     );
     functions.insert(
         "ABS",
         NativeFunctionInfo {
-            func: psy_math::abs,
+            func: math::abs,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "ROUND",
         NativeFunctionInfo {
-            func: psy_math::round,
+            func: math::round,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "FLOOR",
         NativeFunctionInfo {
-            func: psy_math::floor,
+            func: math::floor,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "CEIL",
         NativeFunctionInfo {
-            func: psy_math::ceil,
+            func: math::ceil,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "MEAN",
         NativeFunctionInfo {
-            func: psy_math::mean,
+            func: math::mean,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "MEDIAN",
         NativeFunctionInfo {
-            func: psy_math::median,
+            func: math::median,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "MODE",
         NativeFunctionInfo {
-            func: psy_math::mode,
+            func: math::mode,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "VARIANCE",
         NativeFunctionInfo {
-            func: psy_math::variance,
+            func: math::variance,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "STDDEV",
         NativeFunctionInfo {
-            func: psy_math::stddev,
+            func: math::stddev,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "MIN",
         NativeFunctionInfo {
-            func: psy_math::min,
+            func: math::min,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "MAX",
         NativeFunctionInfo {
-            func: psy_math::max,
+            func: math::max,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "SUM",
         NativeFunctionInfo {
-            func: psy_math::sum,
+            func: math::sum,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "PRODUCT",
         NativeFunctionInfo {
-            func: psy_math::product,
+            func: math::product,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "GCD",
         NativeFunctionInfo {
-            func: psy_math::gcd,
+            func: math::gcd,
             arity: Arity::Exact(2),
         },
     );
     functions.insert(
         "LCM",
         NativeFunctionInfo {
-            func: psy_math::lcm,
+            func: math::lcm,
             arity: Arity::Exact(2),
         },
     );
     functions.insert(
         "IS_PRIME",
         NativeFunctionInfo {
-            func: psy_math::is_prime,
+            func: math::is_prime,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "MATRIX_ADD",
         NativeFunctionInfo {
-            func: psy_math::matrix_add,
+            func: math::matrix_add,
             arity: Arity::AtLeast(2),
         },
     );
     functions.insert(
         "MATRIX_MULTIPLY",
         NativeFunctionInfo {
-            func: psy_math::matrix_multiply,
+            func: math::matrix_multiply,
             arity: Arity::AtLeast(2),
         },
     );
     functions.insert(
         "MATRIX_TRANSPOSE",
         NativeFunctionInfo {
-            func: psy_math::matrix_transpose,
+            func: math::matrix_transpose,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "MATRIX_DETERMINANT",
         NativeFunctionInfo {
-            func: psy_math::matrix_determinant,
+            func: math::matrix_determinant,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "MATRIX_INVERSE",
         NativeFunctionInfo {
-            func: psy_math::matrix_inverse,
+            func: math::matrix_inverse,
             arity: Arity::AtLeast(1),
         },
     );
     functions.insert(
         "DOT",
         NativeFunctionInfo {
-            func: psy_math::dot,
+            func: math::dot,
             arity: Arity::Exact(2),
         },
     );
     functions.insert(
         "CROSS",
         NativeFunctionInfo {
-            func: psy_math::cross,
+            func: math::cross,
             arity: Arity::Exact(2),
         },
     );
     functions.insert(
         "ASIN",
         NativeFunctionInfo {
-            func: psy_math::asin,
+            func: math::asin,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "ACOS",
         NativeFunctionInfo {
-            func: psy_math::acos,
+            func: math::acos,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "ATAN",
         NativeFunctionInfo {
-            func: psy_math::atan,
+            func: math::atan,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "LOG",
         NativeFunctionInfo {
-            func: psy_math::log,
+            func: math::log,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "LOG10",
         NativeFunctionInfo {
-            func: psy_math::log10,
+            func: math::log10,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "EXP",
         NativeFunctionInfo {
-            func: psy_math::exp,
+            func: math::exp,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "FACTORIAL",
         NativeFunctionInfo {
-            func: psy_math::factorial,
+            func: math::factorial,
             arity: Arity::Exact(1),
         },
     );
 
     let mut constants: HashMap<&'static str, Value> = HashMap::new();
-    constants.insert("PI", psy_math::pi());
-    constants.insert("E", psy_math::e());
+    constants.insert("PI", math::pi());
+    constants.insert("E", math::e());
 
     NativeModule {
         functions,
@@ -333,49 +333,49 @@ fn fs_module() -> NativeModule {
     functions.insert(
         "READFILE",
         NativeFunctionInfo {
-            func: psy_fs::read_file,
+            func: fs::read_file,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "WRITEFILE",
         NativeFunctionInfo {
-            func: psy_fs::write_file,
+            func: fs::write_file,
             arity: Arity::Exact(2),
         },
     );
     functions.insert(
         "EXISTS",
         NativeFunctionInfo {
-            func: psy_fs::exists,
+            func: fs::exists,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "ISFILE",
         NativeFunctionInfo {
-            func: psy_fs::is_file,
+            func: fs::is_file,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "ISDIR",
         NativeFunctionInfo {
-            func: psy_fs::is_dir,
+            func: fs::is_dir,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "DELETE",
         NativeFunctionInfo {
-            func: psy_fs::delete,
+            func: fs::delete,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "LISTDIR",
         NativeFunctionInfo {
-            func: psy_fs::list_dir,
+            func: fs::list_dir,
             arity: Arity::Exact(1),
         },
     );
@@ -392,35 +392,35 @@ fn time_module() -> NativeModule {
     functions.insert(
         "NOW",
         NativeFunctionInfo {
-            func: psy_time::now,
+            func: time::now,
             arity: Arity::Exact(0),
         },
     );
     functions.insert(
         "NOWMS",
         NativeFunctionInfo {
-            func: psy_time::now_ms,
+            func: time::now_ms,
             arity: Arity::Exact(0),
         },
     );
     functions.insert(
         "SLEEP",
         NativeFunctionInfo {
-            func: psy_time::sleep,
+            func: time::sleep,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "SLEEPMS",
         NativeFunctionInfo {
-            func: psy_time::sleep_ms,
+            func: time::sleep_ms,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "FORMATTIME",
         NativeFunctionInfo {
-            func: psy_time::format_time,
+            func: time::format_time,
             arity: Arity::Exact(1),
         },
     );
@@ -437,49 +437,49 @@ fn crypto_module() -> NativeModule {
     functions.insert(
         "ENCRYPT",
         NativeFunctionInfo {
-            func: psy_crypto::encrypt,
+            func: crypto::encrypt,
             arity: Arity::Exact(2),
         },
     );
     functions.insert(
         "DECRYPT",
         NativeFunctionInfo {
-            func: psy_crypto::decrypt,
+            func: crypto::decrypt,
             arity: Arity::Exact(2),
         },
     );
     functions.insert(
         "HASH",
         NativeFunctionInfo {
-            func: psy_crypto::hash,
+            func: crypto::hash,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "BASE64_ENCODE",
         NativeFunctionInfo {
-            func: psy_crypto::base64_encode,
+            func: crypto::base64_encode,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "BASE64_DECODE",
         NativeFunctionInfo {
-            func: psy_crypto::base64_decode,
+            func: crypto::base64_decode,
             arity: Arity::Exact(1),
         },
     );
     functions.insert(
         "HMAC_GENERATE",
         NativeFunctionInfo {
-            func: psy_crypto::hmac_generate,
+            func: crypto::hmac_generate,
             arity: Arity::Exact(2),
         },
     );
     functions.insert(
         "HMAC_VERIFY",
         NativeFunctionInfo {
-            func: psy_crypto::hmac_verify,
+            func: crypto::hmac_verify,
             arity: Arity::Exact(3),
         },
     );
@@ -487,14 +487,14 @@ fn crypto_module() -> NativeModule {
     functions.insert(
         "AES_ENCRYPT",
         NativeFunctionInfo {
-            func: psy_crypto::aes_encrypt,
+            func: crypto::aes_encrypt,
             arity: Arity::Exact(3),
         },
     );
     functions.insert(
         "AES_DECRYPT",
         NativeFunctionInfo {
-            func: psy_crypto::aes_decrypt,
+            func: crypto::aes_decrypt,
             arity: Arity::Exact(3),
         },
     );
@@ -502,21 +502,21 @@ fn crypto_module() -> NativeModule {
     functions.insert(
         "RSA_GENERATE_KEY",
         NativeFunctionInfo {
-            func: psy_crypto::rsa_generate_key,
+            func: crypto::rsa_generate_key,
             arity: Arity::Exact(0),
         },
     );
     functions.insert(
         "RSA_ENCRYPT",
         NativeFunctionInfo {
-            func: psy_crypto::rsa_encrypt,
+            func: crypto::rsa_encrypt,
             arity: Arity::Exact(2),
         },
     );
     functions.insert(
         "RSA_DECRYPT",
         NativeFunctionInfo {
-            func: psy_crypto::rsa_decrypt,
+            func: crypto::rsa_decrypt,
             arity: Arity::Exact(2),
         },
     );

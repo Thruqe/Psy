@@ -15,7 +15,7 @@ export function activate() {
         "..",
         "target",
         "release",
-        "psy-lsp"
+        "lsp"
     );
 
     const serverOptions: ServerOptions = {

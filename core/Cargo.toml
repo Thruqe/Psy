@@ -1,5 +1,5 @@
 [package]
-name = "psy-core"
+name = "core"
 version = "0.1.0"
 edition = "2024"
 
@@ -7,8 +7,8 @@ edition = "2024"
 path = "src/lib.rs"
 
 [dependencies]
-psy-types = { path = "../types" }
-psy-math = { path = "../modules/math" }
-psy-fs = { path = "../modules/fs" }
-psy-time = { path = "../modules/time" }
-psy-crypto = { path = "../modules/crypto" }
+types = { path = "../structs/" }
+math = { path = "../crates/math" }
+fs = { path = "../crates/fs" }
+time = { path = "../crates/time" }
+crypto = { path = "../crates/crypto" }

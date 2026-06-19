@@ -9,9 +9,6 @@
 	"categories": [
 		"Programming Languages"
 	],
-	"activationEvents": [
-		"onLanguage:psy"
-	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"languages": [

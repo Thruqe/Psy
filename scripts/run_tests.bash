@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-mkdir -p /tmp/psy_regression
-rm -rf /tmp/psy_regression/*
-cp -r examples /tmp/psy_regression/examples
+mkdir -p /tmp/regression
+rm -rf /tmp/regression/*
+cp -r examples /tmp/regression/examples
 
 echo "=== Psy Tests ==="
 echo
@@ -11,12 +11,12 @@ passed=0
 failed=0
 failed_names=()
 
-for f in $(find /tmp/psy_regression/examples -name "*.psy"); do
+for f in $(find /tmp/regression/examples -name "*.psy"); do
     dir=$(dirname "$f")
     base=$(basename "$f")
     ignore_file="$dir/.regression-ignore"
 
-    name=$(realpath --relative-to=/tmp/psy_regression/examples "$f")
+    name=$(realpath --relative-to=/tmp/regression/examples "$f")
 
     # prototypes/ contains examples for modules that don't exist yet
     # skip entirely rather than scoring as failures.

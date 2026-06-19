@@ -1,0 +1,14 @@
+[package]
+name = "crypto"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+types = { path = "../../structs/" }
+base64 = "0.22"
+sha2 = "0.10"
+hmac = "0.12"
+aes = "0.8"
+cbc = "0.1"
+rand = "0.8"
+hex = "0.4.3"

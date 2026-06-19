@@ -1,6 +1,0 @@
-[package]
-name = "psy-types"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]

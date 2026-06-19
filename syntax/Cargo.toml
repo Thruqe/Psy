@@ -1,12 +1,10 @@
 [package]
-name = "psy"
+name = "syntax"
 version.workspace = true
 edition.workspace = true
 
-[[bin]]
-name = "psy"
-path = "src/main.rs"
+[lib]
+path = "src/lib.rs"
 
 [dependencies]
 core = { path = "../core" }
-syntax = { path = "../syntax" }
