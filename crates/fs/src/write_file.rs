@@ -1,5 +1,5 @@
-use types::Value;
 use std::fs;
+use types::Value;
 
 pub fn write_file(args: &[Value]) -> Result<Value, String> {
     if args.len() != 2 {

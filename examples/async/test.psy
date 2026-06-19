@@ -1,0 +1,98 @@
+IMPORT _ASYNC[ASYNC_RUN, ASYNC_SPAWN, ASYNC_AWAIT, ASYNC_PARALLEL, ASYNC_SLEEP, ASYNC_STATUS, ASYNC_AWAIT_ALL]
+IMPORT _TIME[NOWMS]
+
+START
+    OUTPUT "========================================="
+    OUTPUT "   PSY ASYNC PROGRAMMING"
+    OUTPUT "========================================="
+    OUTPUT ""
+    
+    // Test 1: Simple async task
+    OUTPUT "1. Simple Async Task"
+    OUTPUT "--------------------"
+    
+    taskId = ASYNC_RUN("background_work")
+    OUTPUT "Task created: " + taskId
+    OUTPUT "Status: " + ASYNC_STATUS(taskId)
+    OUTPUT ""
+    
+    // Spawn the task
+    ASYNC_SPAWN(taskId, "compute")
+    OUTPUT "Task spawned"
+    OUTPUT "Status: " + ASYNC_STATUS(taskId)
+    OUTPUT ""
+    
+    // Await the result
+    result = ASYNC_AWAIT(taskId)
+    OUTPUT "Task result: "
+    OUTPUT result
+    OUTPUT "Status: " + ASYNC_STATUS(taskId)
+    OUTPUT ""
+    
+    // Test 2: Parallel execution
+    OUTPUT "2. Parallel Execution"
+    OUTPUT "---------------------"
+    
+    tasks = ["task_a", "task_b", "task_c", "task_d"]
+    
+    start = NOWMS()
+    results = ASYNC_PARALLEL(tasks)
+    elapsed = NOWMS() - start
+    
+    OUTPUT "Parallel tasks completed in " + elapsed + "ms"
+    OUTPUT "Results:"
+    OUTPUT results
+    OUTPUT ""
+    
+    // Test 3: Async sleep
+    OUTPUT "3. Async Sleep"
+    OUTPUT "--------------------"
+    
+    OUTPUT "Starting async sleep..."
+    start = NOWMS()
+    ASYNC_SLEEP(1000)
+    elapsed = NOWMS() - start
+    OUTPUT "Slept for " + elapsed + "ms"
+    OUTPUT ""
+    
+    // Test 4: Multiple awaits
+    OUTPUT "4. Await All"
+    OUTPUT "------------------"
+    
+    task1 = ASYNC_RUN("worker_1")
+    task2 = ASYNC_RUN("worker_2")
+    task3 = ASYNC_RUN("worker_3")
+    
+    ASYNC_SPAWN(task1, "process_a")
+    ASYNC_SPAWN(task2, "process_b")
+    ASYNC_SPAWN(task3, "process_c")
+    
+    OUTPUT "Waiting for all tasks..."
+    allResults = ASYNC_AWAIT_ALL([task1, task2, task3])
+    OUTPUT "All tasks completed:"
+    OUTPUT allResults
+    OUTPUT ""
+    
+    // Test 5: Async WebSocket-style ping/pong
+    OUTPUT "5. WebSocket Ping/Pong Simulation"
+    OUTPUT "---------------------------------"
+    
+    pingTask = ASYNC_RUN("ping")
+    ASYNC_SPAWN(pingTask, "send_ping")
+    
+    OUTPUT "Ping sent..."
+    ASYNC_SLEEP(100)
+    
+    pongTask = ASYNC_RUN("pong")
+    ASYNC_SPAWN(pongTask, "receive_pong")
+    
+    OUTPUT "Waiting for pong..."
+    pongResult = ASYNC_AWAIT(pongTask)
+    OUTPUT "Received: " + pongResult
+    OUTPUT ""
+    
+    OUTPUT "========================================="
+    OUTPUT "        ASYNC COMPLETE!"
+    OUTPUT "========================================="
+
+END

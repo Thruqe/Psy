@@ -1,5 +1,5 @@
-use types::Value;
 use std::collections::HashMap;
+use types::Value;
 
 pub fn mode(args: &[Value]) -> Result<Value, String> {
     if args.is_empty() {

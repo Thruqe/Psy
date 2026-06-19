@@ -1,5 +1,5 @@
-use types::Value;
 use std::time::UNIX_EPOCH;
+use types::Value;
 
 pub fn format_time(args: &[Value]) -> Result<Value, String> {
     if args.len() != 1 {

@@ -34,6 +34,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "async_psy"
+version = "0.1.0"
+dependencies = [
+ "types",
+]
+
+[[package]]
 name = "auto_impl"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -449,6 +456,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
+name = "json"
+version = "0.1.0"
+dependencies = [
+ "types",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.186"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -518,6 +532,13 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys",
+]
+
+[[package]]
+name = "network"
+version = "0.1.0"
+dependencies = [
+ "types",
 ]
 
 [[package]]
@@ -620,9 +641,12 @@ dependencies = [
 name = "psycore"
 version = "0.1.0"
 dependencies = [
+ "async_psy",
  "crypto",
  "fs",
+ "json",
  "math",
+ "network",
  "time",
  "types",
 ]

@@ -1,6 +1,6 @@
 use hmac::{Hmac, Mac};
-use types::Value;
 use sha2::Sha256;
+use types::Value;
 
 type HmacSha256 = Hmac<Sha256>;
 

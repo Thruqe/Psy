@@ -1,5 +1,5 @@
-use types::Value;
 use std::path::Path;
+use types::Value;
 
 pub fn exists(args: &[Value]) -> Result<Value, String> {
     if args.len() != 1 {

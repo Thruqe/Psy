@@ -91,13 +91,18 @@ pub fn get_module(module_name: &str) -> Option<NativeModule> {
         "_FS" => Some(fs_module()),
         "_TIME" => Some(time_module()),
         "_CRYPTO" => Some(crypto_module()),
+        "_NETWORK" => Some(network_module()),
+        "_JSON" => Some(json_module()),
+        "_ASYNC" => Some(async_module()),
         _ => None,
     }
 }
 
 /// Returns all available native module names
 pub fn module_names() -> Vec<&'static str> {
-    vec!["_MATH", "_FS", "_TIME", "_CRYPTO"]
+    vec![
+        "_MATH", "_FS", "_TIME", "_CRYPTO", "_NETWORK", "_JSON", "_ASYNC",
+    ]
 }
 
 fn math_module() -> NativeModule {
@@ -759,6 +764,366 @@ fn crypto_module() -> NativeModule {
     NativeModule {
         name: "_CRYPTO",
         description: "Cryptographic operations including encryption, hashing, and encoding",
+        functions,
+        constants: HashMap::new(),
+    }
+}
+
+fn network_module() -> NativeModule {
+    let mut functions: HashMap<&'static str, NativeFunctionInfo> = HashMap::new();
+
+    functions.insert(
+        "HTTP_GET",
+        NativeFunctionInfo {
+            func: network::http_get,
+            arity: Arity::Exact(1),
+            description: "Performs an HTTP GET request to the specified URL",
+            return_type: "Array",
+            parameters: &[("url", "String")],
+        },
+    );
+
+    functions.insert(
+        "HTTP_POST",
+        NativeFunctionInfo {
+            func: network::http_post,
+            arity: Arity::Exact(2),
+            description: "Performs an HTTP POST request with a body to the specified URL",
+            return_type: "Array",
+            parameters: &[("url", "String"), ("body", "String")],
+        },
+    );
+
+    functions.insert(
+        "HTTP_PUT",
+        NativeFunctionInfo {
+            func: network::http_put,
+            arity: Arity::Exact(2),
+            description: "Performs an HTTP PUT request with a body to the specified URL",
+            return_type: "Array",
+            parameters: &[("url", "String"), ("body", "String")],
+        },
+    );
+
+    functions.insert(
+        "HTTP_DELETE",
+        NativeFunctionInfo {
+            func: network::http_delete,
+            arity: Arity::Exact(1),
+            description: "Performs an HTTP DELETE request to the specified URL",
+            return_type: "Array",
+            parameters: &[("url", "String")],
+        },
+    );
+
+    functions.insert(
+        "HTTP_HEAD",
+        NativeFunctionInfo {
+            func: network::http_head,
+            arity: Arity::Exact(1),
+            description: "Performs an HTTP HEAD request to retrieve headers only",
+            return_type: "Array",
+            parameters: &[("url", "String")],
+        },
+    );
+
+    functions.insert(
+        "URL_ENCODE",
+        NativeFunctionInfo {
+            func: network::url_encode,
+            arity: Arity::Exact(1),
+            description: "Encodes a string for safe use in URLs",
+            return_type: "String",
+            parameters: &[("text", "String")],
+        },
+    );
+
+    functions.insert(
+        "URL_DECODE",
+        NativeFunctionInfo {
+            func: network::url_decode,
+            arity: Arity::Exact(1),
+            description: "Decodes a URL-encoded string",
+            return_type: "String",
+            parameters: &[("text", "String")],
+        },
+    );
+
+    functions.insert(
+        "PARSE_JSON",
+        NativeFunctionInfo {
+            func: network::parse_json,
+            arity: Arity::Exact(1),
+            description: "Parses a JSON string into a Psy array",
+            return_type: "Array",
+            parameters: &[("json", "String")],
+        },
+    );
+
+    functions.insert(
+        "SERVER_CREATE",
+        NativeFunctionInfo {
+            func: network::server_create,
+            arity: Arity::Exact(1),
+            description: "Creates a new HTTP server on the specified port",
+            return_type: "String",
+            parameters: &[("port", "Number")],
+        },
+    );
+
+    functions.insert(
+        "SERVER_LISTEN",
+        NativeFunctionInfo {
+            func: network::server_listen,
+            arity: Arity::Exact(1),
+            description: "Starts listening on the server",
+            return_type: "Boolean",
+            parameters: &[("server_id", "String")],
+        },
+    );
+
+    functions.insert(
+        "SERVER_ROUTE",
+        NativeFunctionInfo {
+            func: network::server_route,
+            arity: Arity::Exact(3),
+            description: "Adds a route to the server (method, path)",
+            return_type: "Boolean",
+            parameters: &[
+                ("server_id", "String"),
+                ("method", "String"),
+                ("path", "String"),
+            ],
+        },
+    );
+
+    functions.insert(
+        "SERVER_ACCEPT",
+        NativeFunctionInfo {
+            func: network::server_accept,
+            arity: Arity::Exact(1),
+            description: "Accepts one incoming connection (non-blocking)",
+            return_type: "String",
+            parameters: &[("server_id", "String")],
+        },
+    );
+
+    functions.insert(
+        "SERVER_ACCEPT_BLOCKING",
+        NativeFunctionInfo {
+            func: network::server_accept_blocking,
+            arity: Arity::Exact(1),
+            description: "Accepts one connection and returns the raw request",
+            return_type: "Array",
+            parameters: &[("server_id", "String")],
+        },
+    );
+
+    functions.insert(
+        "SERVER_RESPOND",
+        NativeFunctionInfo {
+            func: network::server_respond,
+            arity: Arity::Exact(2),
+            description: "Sends an HTTP response",
+            return_type: "String",
+            parameters: &[("server_id", "String"), ("response", "String")],
+        },
+    );
+
+    functions.insert(
+        "SERVER_STOP",
+        NativeFunctionInfo {
+            func: network::server_stop,
+            arity: Arity::Exact(1),
+            description: "Stops and removes a server",
+            return_type: "Boolean",
+            parameters: &[("server_id", "String")],
+        },
+    );
+
+    functions.insert(
+        "SERVER_LIST_ALL",
+        NativeFunctionInfo {
+            func: network::server_list,
+            arity: Arity::Exact(0),
+            description: "Lists all active servers",
+            return_type: "Array",
+            parameters: &[],
+        },
+    );
+
+    NativeModule {
+        name: "_NETWORK",
+        description: "Network operations for HTTP requests, URL encoding, and JSON parsing",
+        functions,
+        constants: HashMap::new(),
+    }
+}
+
+fn json_module() -> NativeModule {
+    let mut functions: HashMap<&'static str, NativeFunctionInfo> = HashMap::new();
+
+    functions.insert(
+        "JSON_PARSE",
+        NativeFunctionInfo {
+            func: json::json_parse,
+            arity: Arity::Exact(1),
+            description: "Parses a JSON string into a Psy value",
+            return_type: "Array",
+            parameters: &[("json_string", "String")],
+        },
+    );
+
+    functions.insert(
+        "JSON_STRINGIFY",
+        NativeFunctionInfo {
+            func: json::json_stringify,
+            arity: Arity::Exact(1),
+            description: "Converts a Psy value to a JSON string",
+            return_type: "String",
+            parameters: &[("value", "Any")],
+        },
+    );
+
+    functions.insert(
+        "JSON_GET",
+        NativeFunctionInfo {
+            func: json::json_get,
+            arity: Arity::Exact(2),
+            description: "Gets a value from a JSON string by key or index",
+            return_type: "Any",
+            parameters: &[("json_string", "String"), ("key", "String/Number")],
+        },
+    );
+
+    functions.insert(
+        "JSON_SET",
+        NativeFunctionInfo {
+            func: json::json_set,
+            arity: Arity::Exact(3),
+            description: "Sets a value in a JSON string by key or index",
+            return_type: "String",
+            parameters: &[
+                ("json_string", "String"),
+                ("key", "String/Number"),
+                ("value", "Any"),
+            ],
+        },
+    );
+
+    functions.insert(
+        "JSON_KEYS",
+        NativeFunctionInfo {
+            func: json::json_keys,
+            arity: Arity::Exact(1),
+            description: "Gets all keys from a JSON object string",
+            return_type: "Array",
+            parameters: &[("json_string", "String")],
+        },
+    );
+
+    NativeModule {
+        name: "_JSON",
+        description: "JSON parsing, stringification, and manipulation functions",
+        functions,
+        constants: HashMap::new(),
+    }
+}
+
+fn async_module() -> NativeModule {
+    let mut functions: HashMap<&'static str, NativeFunctionInfo> = HashMap::new();
+
+    functions.insert(
+        "ASYNC_RUN",
+        NativeFunctionInfo {
+            func: async_psy::async_run,
+            arity: Arity::Exact(1),
+            description: "Creates an async task",
+            return_type: "String",
+            parameters: &[("task_name", "String")],
+        },
+    );
+
+    functions.insert(
+        "ASYNC_SPAWN",
+        NativeFunctionInfo {
+            func: async_psy::async_spawn,
+            arity: Arity::Exact(2),
+            description: "Spawns an async task in a separate thread",
+            return_type: "Boolean",
+            parameters: &[("task_id", "String"), ("function", "String")],
+        },
+    );
+
+    functions.insert(
+        "ASYNC_AWAIT",
+        NativeFunctionInfo {
+            func: async_psy::async_await,
+            arity: Arity::Exact(1),
+            description: "Awaits completion of an async task",
+            return_type: "Any",
+            parameters: &[("task_id", "String")],
+        },
+    );
+
+    functions.insert(
+        "ASYNC_SLEEP",
+        NativeFunctionInfo {
+            func: async_psy::async_sleep,
+            arity: Arity::Exact(1),
+            description: "Sleeps asynchronously for specified milliseconds",
+            return_type: "Void",
+            parameters: &[("milliseconds", "Number")],
+        },
+    );
+
+    functions.insert(
+        "ASYNC_PARALLEL",
+        NativeFunctionInfo {
+            func: async_psy::async_parallel,
+            arity: Arity::Exact(1),
+            description: "Runs multiple tasks in parallel",
+            return_type: "Array",
+            parameters: &[("tasks", "Array")],
+        },
+    );
+
+    functions.insert(
+        "ASYNC_STATUS",
+        NativeFunctionInfo {
+            func: async_psy::async_status,
+            arity: Arity::Exact(1),
+            description: "Gets the status of an async task",
+            return_type: "String",
+            parameters: &[("task_id", "String")],
+        },
+    );
+
+    functions.insert(
+        "ASYNC_CANCEL",
+        NativeFunctionInfo {
+            func: async_psy::async_cancel,
+            arity: Arity::Exact(1),
+            description: "Cancels an async task",
+            return_type: "Boolean",
+            parameters: &[("task_id", "String")],
+        },
+    );
+
+    functions.insert(
+        "ASYNC_AWAIT_ALL",
+        NativeFunctionInfo {
+            func: async_psy::async_await_all,
+            arity: Arity::Exact(1),
+            description: "Awaits completion of multiple async tasks",
+            return_type: "Array",
+            parameters: &[("task_ids", "Array")],
+        },
+    );
+
+    NativeModule {
+        name: "_ASYNC",
+        description: "Asynchronous programming support with tasks, parallel execution, and channels",
         functions,
         constants: HashMap::new(),
     }

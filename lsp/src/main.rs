@@ -598,7 +598,7 @@ impl LanguageServer for Backend {
 
         Ok(None)
     }
-    
+
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
         let uri = params.text_document_position.text_document.uri;
         let docs = self.documents.lock().await;

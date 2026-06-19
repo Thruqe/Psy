@@ -1,5 +1,5 @@
-use types::Value;
 use std::time::{SystemTime, UNIX_EPOCH};
+use types::Value;
 
 pub fn now(args: &[Value]) -> Result<Value, String> {
     if !args.is_empty() {

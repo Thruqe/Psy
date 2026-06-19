@@ -1,0 +1,71 @@
+IMPORT _NETWORK[SERVER_CREATE, SERVER_LISTEN, SERVER_ROUTE, SERVER_ACCEPT, SERVER_STOP]
+IMPORT _TIME[NOWMS]
+
+START
+    OUTPUT "========================================="
+    OUTPUT "   PSY HTTP SERVER-"
+    OUTPUT "========================================="
+    OUTPUT ""
+    
+    // Create server on port 8080
+    serverId = SERVER_CREATE(8080)
+    OUTPUT "Server created: "
+    OUTPUT serverId
+    OUTPUT ""
+    
+    // Add routes
+    SERVER_ROUTE(serverId, "GET", "/")
+    SERVER_ROUTE(serverId, "GET", "/hello")
+    SERVER_ROUTE(serverId, "POST", "/data")
+    SERVER_ROUTE(serverId, "ANY", "/api")
+    
+    OUTPUT "Routes configured:"
+    OUTPUT "  GET /"
+    OUTPUT "  GET /hello"
+    OUTPUT "  POST /data"
+    OUTPUT "  ANY /api"
+    OUTPUT ""
+    
+    // Start listening
+    SERVER_LISTEN(serverId)
+    OUTPUT "Server is now listening on http://localhost:8080"
+    OUTPUT "Will run for 3 seconds..."
+    OUTPUT "Open http://localhost:8080 in your browser to test!"
+    OUTPUT ""
+    
+    // Main accept loop - run for 3 seconds
+    running = TRUE
+    counter = 0
+    startTime = NOWMS()
+    
+    WHILE running
+        // Accept incoming connections (non-blocking)
+        result = SERVER_ACCEPT(serverId)
+        
+        // Check if a connection was accepted
+        IF result != "no_connection" THEN
+            counter = counter + 1
+            OUTPUT "Request #"
+            OUTPUT counter
+            OUTPUT " from "
+            OUTPUT result
+        ENDIF
+        
+        // Small sleep to prevent CPU spinning
+        // Check if 3 seconds have passed
+        currentTime = NOWMS()
+        elapsed = currentTime - startTime
+        
+        IF elapsed >= 3000 THEN
+            running = FALSE
+        ENDIF
+    ENDWHILE
+    
+    // Stop the server
+    SERVER_STOP(serverId)
+    OUTPUT ""
+    OUTPUT "Server stopped after 3 seconds."
+    OUTPUT "Total requests handled: "
+    OUTPUT counter
+
+END

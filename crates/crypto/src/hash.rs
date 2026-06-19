@@ -1,5 +1,5 @@
-use types::Value;
 use sha2::{Digest, Sha256};
+use types::Value;
 
 pub fn hash(args: &[Value]) -> Result<Value, String> {
     if args.len() != 1 {

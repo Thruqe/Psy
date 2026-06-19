@@ -249,14 +249,9 @@ impl Parser {
         let mut values = Vec::new();
 
         while !self.is_at_end() && !self.check(Token::Newline) {
-            let value = if let Token::StringLiteral(s) = self.current() {
-                self.advance();
-                OutputValue::StringLiteral(s.clone())
-            } else {
-                let expr = self.parse_expression()?;
-                OutputValue::Expression(expr)
-            };
-            values.push(value);
+            // Always parse as expression - this allows concatenation like "text " + variable
+            let expr = self.parse_expression()?;
+            values.push(OutputValue::Expression(expr));
 
             if self.check(Token::Comma) {
                 self.advance();

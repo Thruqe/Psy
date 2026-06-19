@@ -12,3 +12,6 @@ math = { path = "../crates/math" }
 fs = { path = "../crates/fs" }
 time = { path = "../crates/time" }
 crypto = { path = "../crates/crypto" }
+network = { path = "../crates/network" }
+json = { path = "../crates/json" }
+async_psy = { path = '../crates/async' }

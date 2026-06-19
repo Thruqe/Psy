@@ -1,6 +1,6 @@
-use types::Value;
 use std::fs;
 use std::path::Path;
+use types::Value;
 
 pub fn delete(args: &[Value]) -> Result<Value, String> {
     if args.len() != 1 {

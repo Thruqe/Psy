@@ -1,5 +1,5 @@
-use types::Value;
 use std::fs;
+use types::Value;
 
 pub fn read_file(args: &[Value]) -> Result<Value, String> {
     if args.len() != 1 {

@@ -8,10 +8,7 @@ use std::path::Path;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let program_name = args
-        .first()
-        .map(|s| s.as_str())
-        .unwrap_or("interpreter");
+    let program_name = args.first().map(|s| s.as_str()).unwrap_or("interpreter");
 
     if args.len() < 2 {
         print_usage(program_name);
@@ -134,9 +131,7 @@ fn main() {
 /// one in full isolation, collects their PUB exports, and returns the
 /// merged set — erroring hard if any sibling fails to parse, or if two
 /// siblings export a name that collides.
-fn load_sibling_exports(
-    entry_filename: &str,
-) -> Result<Vec<psycore::interpreter::Export>, String> {
+fn load_sibling_exports(entry_filename: &str) -> Result<Vec<psycore::interpreter::Export>, String> {
     let entry_path = Path::new(entry_filename);
     let dir = match entry_path.parent() {
         Some(p) if !p.as_os_str().is_empty() => p,
