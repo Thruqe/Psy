@@ -446,7 +446,16 @@ dependencies = [
 name = "psy-core"
 version = "0.1.0"
 dependencies = [
+ "psy-fs",
  "psy-math",
+ "psy-time",
+ "psy-types",
+]
+
+[[package]]
+name = "psy-fs"
+version = "0.1.0"
+dependencies = [
  "psy-types",
 ]
 
@@ -465,6 +474,13 @@ dependencies = [
 
 [[package]]
 name = "psy-math"
+version = "0.1.0"
+dependencies = [
+ "psy-types",
+]
+
+[[package]]
+name = "psy-time"
 version = "0.1.0"
 dependencies = [
  "psy-types",

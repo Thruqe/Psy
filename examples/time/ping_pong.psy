@@ -1,0 +1,79 @@
+IMPORT _TIME[NOWMS, SLEEPMS]
+
+START
+    OUTPUT "--- Ping Pong Speed Test ---"
+    OUTPUT ""
+    
+    // Simulate ping-pong rally
+    rallyCount = 10
+    totalTime = 0
+    
+    OUTPUT "Starting ", rallyCount, "-shot rally..."
+    OUTPUT ""
+    
+    FOR shot = 1 TO rallyCount
+        // Time the "ping" (send)
+        start = NOWMS()
+        
+        // Simulate network latency (10-50ms)
+        SLEEPMS(15)
+        
+        // Time the "pong" (receive)
+        pongTime = NOWMS()
+        
+        roundTrip = pongTime - start
+        totalTime = totalTime + roundTrip
+        
+        // Show each exchange
+        IF shot = 1 THEN
+            OUTPUT "Shot ", shot, ": PING!  (", roundTrip, "ms)"
+        ENDIF
+        
+        IF shot = rallyCount THEN
+            OUTPUT "Shot ", shot, ": PONG!  (", roundTrip, "ms)"
+        ENDIF
+        
+        IF shot != 1 THEN
+            IF shot != rallyCount THEN
+                IF (shot - shot / 2 * 2) = 0 THEN
+                    OUTPUT "Shot ", shot, ": PONG!  (", roundTrip, "ms)"
+                ELSE
+                    OUTPUT "Shot ", shot, ": PING!  (", roundTrip, "ms)"
+                ENDIF
+            ENDIF
+        ENDIF
+        
+        // Brief pause between shots
+        SLEEPMS(50)
+    ENDFOR
+    
+    // Calculate statistics
+    avgTime = totalTime / rallyCount
+    
+    OUTPUT ""
+    OUTPUT "--- Rally Complete! ---"
+    OUTPUT "Total time: ", totalTime, "ms"
+    OUTPUT "Average ping: ", avgTime, "ms"
+    OUTPUT "Shots: ", rallyCount
+    
+    // Rate the connection
+    OUTPUT ""
+    OUTPUT "Connection Rating:"
+    IF avgTime < 10 THEN
+        OUTPUT "Excellent! (<10ms)"
+    ELSE
+        IF avgTime < 20 THEN
+            OUTPUT "Good (10-20ms)"
+        ELSE
+            IF avgTime < 30 THEN
+                OUTPUT "OK (20-30ms)"
+            ELSE
+                OUTPUT "Slow (>30ms)"
+            ENDIF
+        ENDIF
+    ENDIF
+    
+    OUTPUT ""
+    OUTPUT "Game Over!"
+
+END

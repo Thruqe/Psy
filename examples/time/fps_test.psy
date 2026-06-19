@@ -1,0 +1,87 @@
+IMPORT _TIME[NOWMS, SLEEPMS]
+
+START
+    OUTPUT "--- FPS (Frames Per Second) Test ---"
+    OUTPUT ""
+    
+    targetFPS = 10
+    frameTime = 1000 / targetFPS
+    
+    OUTPUT "Target: "
+    OUTPUT targetFPS
+    OUTPUT " FPS"
+    OUTPUT "Frame time: "
+    OUTPUT frameTime
+    OUTPUT "ms per frame"
+    OUTPUT ""
+    
+    totalFrames = 20
+    startTotal = NOWMS()
+    
+    FOR frame = 1 TO totalFrames
+        frameStart = NOWMS()
+        
+        // Simulate game logic
+        sum = 0
+        FOR i = 1 TO 100
+            sum = sum + i
+        ENDFOR
+        
+        workTime = NOWMS() - frameStart
+        sleepNeeded = frameTime - workTime
+        
+        IF sleepNeeded > 0 THEN
+            SLEEPMS(sleepNeeded)
+        ENDIF
+        
+        IF frame = 1 THEN
+            OUTPUT "Frame 1 complete"
+        ENDIF
+        
+        IF frame = 5 THEN
+            OUTPUT "Frame 5 complete"
+        ENDIF
+        
+        IF frame = 10 THEN
+            OUTPUT "Frame 10 complete"
+        ENDIF
+        
+        IF frame = 15 THEN
+            OUTPUT "Frame 15 complete"
+        ENDIF
+        
+        IF frame = 20 THEN
+            OUTPUT "Frame 20 complete"
+        ENDIF
+    ENDFOR
+    
+    totalTime = NOWMS() - startTotal
+    actualFPS = (totalFrames * 1000) / totalTime
+    
+    OUTPUT ""
+    OUTPUT "--- Results ---"
+    OUTPUT "Target FPS: "
+    OUTPUT targetFPS
+    OUTPUT "Total time: "
+    OUTPUT totalTime
+    OUTPUT "ms"
+    OUTPUT "Actual FPS: "
+    OUTPUT actualFPS
+    OUTPUT ""
+    
+    fpsDiff = targetFPS - actualFPS
+    IF fpsDiff < 0 THEN
+        fpsDiff = 0 - fpsDiff
+    ENDIF
+    
+    IF fpsDiff < 1 THEN
+        OUTPUT "Excellent FPS accuracy!"
+    ELSE
+        IF fpsDiff < 3 THEN
+            OUTPUT "Good FPS accuracy"
+        ELSE
+            OUTPUT "Poor FPS accuracy"
+        ENDIF
+    ENDIF
+
+END

@@ -1,0 +1,78 @@
+IMPORT _TIME[NOWMS, NOW]
+
+START
+    OUTPUT "--- Performance Benchmark ---"
+    OUTPUT ""
+    
+    // Test 1: Empty loop overhead
+    OUTPUT "Test 1: Loop overhead (100,000 iterations)"
+    start = NOWMS()
+    
+    FOR i = 1 TO 100000
+        // Empty loop
+    ENDFOR
+    
+    end = NOWMS()
+    elapsed = end - start
+    OUTPUT "Time: "
+    OUTPUT elapsed
+    OUTPUT "ms"
+    OUTPUT ""
+    
+    // Test 2: Arithmetic operations
+    OUTPUT "Test 2: Arithmetic operations (100,000 calculations)"
+    result = 0
+    start = NOWMS()
+    
+    FOR i = 1 TO 100000
+        result = result + i * 2 - 1
+    ENDFOR
+    
+    end = NOWMS()
+    elapsed = end - start
+    OUTPUT "Time: "
+    OUTPUT elapsed
+    OUTPUT "ms"
+    OUTPUT "Result: "
+    OUTPUT result
+    OUTPUT ""
+    
+    // Test 3: String operations
+    OUTPUT "Test 3: String concatenation (1,000 times)"
+    text = ""
+    start = NOWMS()
+    
+    FOR i = 1 TO 1000
+        text = text + "a"
+    ENDFOR
+    
+    end = NOWMS()
+    elapsed = end - start
+    OUTPUT "Time: "
+    OUTPUT elapsed
+    OUTPUT "ms"
+    OUTPUT ""
+    
+    // Test 4: Array operations
+    OUTPUT "Test 4: Array access (50,000 reads/writes)"
+    DECLARE data[1000]
+    
+    start = NOWMS()
+    FOR i = 0 TO 999
+        data[i] = i * 2
+    ENDFOR
+    
+    sum = 0
+    FOR i = 0 TO 999
+        sum = sum + data[i]
+    ENDFOR
+    end = NOWMS()
+    
+    elapsed = end - start
+    OUTPUT "Time: "
+    OUTPUT elapsed
+    OUTPUT "ms"
+    OUTPUT "Sum: "
+    OUTPUT sum
+
+END

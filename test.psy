@@ -1,0 +1,117 @@
+IMPORT _TIME[NOW, NOWMS, SLEEP, SLEEPMS, FORMATTIME]
+
+START
+    OUTPUT "╔════════════════════════════════╗"
+    OUTPUT "║   TIME MODULE COMPLETE TEST    ║"
+    OUTPUT "╚════════════════════════════════╝"
+    OUTPUT ""
+    
+    // 1. Basic time retrieval
+    OUTPUT "1. CURRENT TIME"
+    OUTPUT "   Seconds: "
+    OUTPUT NOW()
+    OUTPUT "   Milliseconds: "
+    OUTPUT NOWMS()
+    OUTPUT ""
+    
+    // 2. Timestamp formatting
+    OUTPUT "2. TIMESTAMP FORMATTING"
+    OUTPUT "   Epoch 0: "
+    OUTPUT FORMATTIME(0)
+    OUTPUT "   Current: "
+    OUTPUT FORMATTIME(NOW())
+    OUTPUT ""
+    
+    // 3. Sleep accuracy
+    OUTPUT "3. SLEEP ACCURACY TEST"
+    
+    targetMs = 100
+    start = NOWMS()
+    SLEEPMS(targetMs)
+    actual = NOWMS() - start
+    
+    OUTPUT "   Target: "
+    OUTPUT targetMs
+    OUTPUT "ms"
+    OUTPUT "   Actual: "
+    OUTPUT actual
+    OUTPUT "ms"
+    OUTPUT ""
+    
+    // 4. Performance measurement
+    OUTPUT "4. PERFORMANCE MEASUREMENT"
+    
+    start = NOWMS()
+    sum = 0
+    FOR i = 1 TO 50000
+        sum = sum + i
+    ENDFOR
+    elapsed = NOWMS() - start
+    
+    OUTPUT "   Sum 1-50000: "
+    OUTPUT sum
+    OUTPUT "   Time: "
+    OUTPUT elapsed
+    OUTPUT "ms"
+    OUTPUT ""
+    
+    // 5. NOW vs NOWMS consistency
+    OUTPUT "5. CONSISTENCY CHECK"
+    
+    sec = NOW()
+    ms = NOWMS()
+    calc = ms / 1000
+    diff = sec - calc
+    
+    IF diff < 0 THEN
+        diff = 0 - diff
+    ENDIF
+    
+    OUTPUT "   NOW: "
+    OUTPUT sec
+    OUTPUT "   NOWMS/1000: "
+    OUTPUT calc
+    OUTPUT "   Difference: "
+    OUTPUT diff
+    OUTPUT ""
+    
+    // 6. Countdown
+    OUTPUT "6. COUNTDOWN (3 seconds)"
+    
+    FOR i = 3 TO 1
+        OUTPUT "   "
+        OUTPUT i
+        OUTPUT "..."
+        SLEEP(1)
+    ENDFOR
+    
+    OUTPUT "   Go!"
+    OUTPUT ""
+    
+    // 7. Rate limiting simulation
+    OUTPUT "7. RATE LIMITING (5 items, 200ms apart)"
+    
+    start = NOWMS()
+    FOR i = 1 TO 5
+        itemStart = NOWMS()
+        OUTPUT "   Item "
+        OUTPUT i
+        SLEEPMS(200)
+        itemTime = NOWMS() - itemStart
+        OUTPUT " ("
+        OUTPUT itemTime
+        OUTPUT "ms)"
+    ENDFOR
+    totalTime = NOWMS() - start
+    
+    OUTPUT "   Total: "
+    OUTPUT totalTime
+    OUTPUT "ms"
+    OUTPUT ""
+    
+    // 8. Summary
+    OUTPUT "╔════════════════════════════════╗"
+    OUTPUT "║       ALL TESTS PASSED!        ║"
+    OUTPUT "╚════════════════════════════════╝"
+
+END

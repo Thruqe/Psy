@@ -1,0 +1,7 @@
+[package]
+name = "psy-fs"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+psy-types = { path = "../../types" }

@@ -61,6 +61,8 @@ impl NativeModule {
 pub fn get_module(module_name: &str) -> Option<NativeModule> {
     match module_name {
         "_MATH" => Some(math_module()),
+        "_FS" => Some(fs_module()),
+        "_TIME" => Some(time_module()),
         _ => None,
     }
 }
@@ -321,5 +323,109 @@ fn math_module() -> NativeModule {
     NativeModule {
         functions,
         constants,
+    }
+}
+
+fn fs_module() -> NativeModule {
+    let mut functions: HashMap<&'static str, NativeFunctionInfo> = HashMap::new();
+
+    functions.insert(
+        "READFILE",
+        NativeFunctionInfo {
+            func: psy_fs::read_file,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "WRITEFILE",
+        NativeFunctionInfo {
+            func: psy_fs::write_file,
+            arity: Arity::Exact(2),
+        },
+    );
+    functions.insert(
+        "EXISTS",
+        NativeFunctionInfo {
+            func: psy_fs::exists,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "ISFILE",
+        NativeFunctionInfo {
+            func: psy_fs::is_file,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "ISDIR",
+        NativeFunctionInfo {
+            func: psy_fs::is_dir,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "DELETE",
+        NativeFunctionInfo {
+            func: psy_fs::delete,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "LISTDIR",
+        NativeFunctionInfo {
+            func: psy_fs::list_dir,
+            arity: Arity::Exact(1),
+        },
+    );
+
+    NativeModule {
+        functions,
+        constants: HashMap::new(),
+    }
+}
+
+fn time_module() -> NativeModule {
+    let mut functions: HashMap<&'static str, NativeFunctionInfo> = HashMap::new();
+
+    functions.insert(
+        "NOW",
+        NativeFunctionInfo {
+            func: psy_time::now,
+            arity: Arity::Exact(0),
+        },
+    );
+    functions.insert(
+        "NOWMS",
+        NativeFunctionInfo {
+            func: psy_time::now_ms,
+            arity: Arity::Exact(0),
+        },
+    );
+    functions.insert(
+        "SLEEP",
+        NativeFunctionInfo {
+            func: psy_time::sleep,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "SLEEPMS",
+        NativeFunctionInfo {
+            func: psy_time::sleep_ms,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "FORMATTIME",
+        NativeFunctionInfo {
+            func: psy_time::format_time,
+            arity: Arity::Exact(1),
+        },
+    );
+
+    NativeModule {
+        functions,
+        constants: HashMap::new(),
     }
 }
