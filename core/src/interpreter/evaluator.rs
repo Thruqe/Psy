@@ -1,5 +1,5 @@
 use crate::interpreter::environment::{Environment, Value};
-use crate::interpreter::native::{self, get_module};
+use crate::interpreter::native::{self, NativeFunctionInfo, get_module};
 use crate::parser::ast::{
     Expression, FunctionParam, Operator, OutputValue, Spanned, Statement, UnaryOperator,
 };
@@ -37,7 +37,7 @@ pub enum Export {
 pub struct Interpreter {
     environment: Environment,
     functions: HashMap<String, FunctionDef>,
-    native_functions: HashMap<String, native::NativeFunctionInfo>,
+    native_functions: HashMap<String, NativeFunctionInfo>,
     native_constants: HashMap<String, Value>,
     imported_modules: Vec<String>,
     statics: HashMap<(String, String), Value>,
@@ -83,8 +83,11 @@ impl Interpreter {
                         if let Some(imported_funcs) = &module_import.functions {
                             consts.retain(|k, _| imported_funcs.iter().any(|f| f == k));
                         }
-                        for (name, value) in consts {
-                            self.environment.set_const(&name, value)?;
+                        for (name, const_info) in consts {
+                            let value = const_info.value.clone();
+                            self.native_constants
+                                .insert(name.to_string(), value.clone());
+                            self.environment.set_const(name, value)?;
                         }
                     } else {
                         return Err(format!("Unknown module: {}", module_import.name));

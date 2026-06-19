@@ -358,6 +358,85 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
+        // CHECK NATIVE MODULES FIRST for better hover info
+        let upper_word = word.to_uppercase();
+        for m_name in psycore::interpreter::native::module_names() {
+            if let Some(module) = psycore::interpreter::native::get_module(m_name) {
+                if let Some(func_info) = module.get_function_info(upper_word.as_str()) {
+                    let params: Vec<String> = func_info
+                        .parameters
+                        .iter()
+                        .map(|(p, t)| format!("{} {}", p, t))
+                        .collect();
+
+                    // Code-like display with syntax highlighting
+                    let content = format!(
+                        "```psy\n\
+                     FUNCTION {}({}) -> {}\n\
+                     ```\n\
+                     \n\
+                     *Native function from `{}` module*\n\
+                     \n\
+                     {}\n\
+                     \n\
+                     **Parameters:**\n\
+                     {}\n\
+                     \n\
+                     **Returns:** `{}`",
+                        word,
+                        params.join(", "),
+                        func_info.return_type,
+                        module.name,
+                        func_info.description,
+                        if func_info.parameters.is_empty() {
+                            "  • *none*".to_string()
+                        } else {
+                            func_info
+                                .parameters
+                                .iter()
+                                .map(|(p, t)| format!("  • `{}`: `{}`", p, t))
+                                .collect::<Vec<_>>()
+                                .join("\n")
+                        },
+                        func_info.return_type
+                    );
+                    return Ok(Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: content,
+                        }),
+                        range: Some(range),
+                    }));
+                }
+                if let Some(const_info) = module.get_constant_info(upper_word.as_str()) {
+                    let content = format!(
+                        "```psy\n\
+                     CONST {}: {}\n\
+                     ```\n\
+                     \n\
+                     *Native constant from `{}` module*\n\
+                     \n\
+                     {}\n\
+                     \n\
+                     **Type:** `{}`",
+                        word,
+                        const_info.constant_type,
+                        module.name,
+                        const_info.description,
+                        const_info.constant_type
+                    );
+                    return Ok(Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: content,
+                        }),
+                        range: Some(range),
+                    }));
+                }
+            }
+        }
+
+        // THEN check document symbols (for user-defined variables/functions)
         if let Some(symbol) = doc_state.symbols.iter().find(|s| s.name == word) {
             let hover_text = match &symbol.kind {
                 syntax::symbols::SymbolKind::Function { parameters } => {
@@ -367,7 +446,13 @@ impl LanguageServer for Backend {
                         .cloned()
                         .unwrap_or(InferredType::Unknown);
                     format!(
-                        "```psy\nFUNCTION {}({}) -> {}\n```\n\n*User-defined routine* — line {}",
+                        "```psy\n\
+                     FUNCTION {}({}) -> {}\n\
+                     ```\n\
+                     \n\
+                     *User-defined routine*\n\
+                     \n\
+                     **Declared at:** line {}",
                         symbol.name,
                         parameters.join(", "),
                         ret_type.to_str(),
@@ -381,10 +466,18 @@ impl LanguageServer for Backend {
                         .cloned()
                         .unwrap_or(InferredType::Unknown);
                     format!(
-                        "**{}** — Type: `{}`\n\nDeclared or tracked at line {}",
+                        "```psy\n\
+                     {}: {}\n\
+                     ```\n\
+                     \n\
+                     *Variable declaration*\n\
+                     \n\
+                     **Declared at:** line {}\n\
+                     **Type:** `{}`",
                         symbol.name,
                         var_type.to_str(),
-                        symbol.line
+                        symbol.line,
+                        var_type.to_str()
                     )
                 }
             };
@@ -397,6 +490,7 @@ impl LanguageServer for Backend {
             }));
         }
 
+        // Then check global exports
         {
             let exports = self.global_exports.lock().await;
             if let Some((ret_type, params, kind_str, _)) = exports.get(&word) {
@@ -406,16 +500,42 @@ impl LanguageServer for Backend {
                         .map(|(p, t)| format!("{} {}", p, t.to_str()))
                         .collect();
                     format!(
-                        "```psy\nPUB FUNCTION {}({}) -> {}\n```\n\n*Shared Foreign Export*",
+                        "```psy\n\
+                     PUB FUNCTION {}({}) -> {}\n\
+                     ```\n\
+                     \n\
+                     *Shared Foreign Export*\n\
+                     \n\
+                     **Parameters:**\n\
+                     {}\n\
+                     \n\
+                     **Returns:** `{}`",
                         word,
                         param_strs.join(", "),
+                        ret_type.to_str(),
+                        if params.is_empty() {
+                            "  • *none*".to_string()
+                        } else {
+                            params
+                                .iter()
+                                .map(|(p, t)| format!("  • `{}`: `{}`", p, t.to_str()))
+                                .collect::<Vec<_>>()
+                                .join("\n")
+                        },
                         ret_type.to_str()
                     )
                 } else {
                     format!(
-                        "**{}** — Shared Foreign `PUB {}` Export\n\nType: `{}`",
-                        word,
+                        "```psy\n\
+                     PUB {} {}: {}\n\
+                     ```\n\
+                     \n\
+                     *Shared Foreign Export*\n\
+                     \n\
+                     **Type:** `{}`",
                         kind_str,
+                        word,
+                        ret_type.to_str(),
                         ret_type.to_str()
                     )
                 };
@@ -429,11 +549,11 @@ impl LanguageServer for Backend {
             }
         }
 
-        let upper_word = word.to_uppercase();
+        // Check keywords
         if let Some((_, info)) = KEYWORDS.iter().find(|(k, _)| *k == upper_word) {
             let content = format!(
-                "**{}** — {}\n\n{}\n\n```psy\n{}\n```",
-                word, info.description, info.detail, info.example
+                "```psy\n{}\n```\n\n**{}** — Keyword\n\n{}\n\n{}",
+                info.example, word, info.description, info.detail
             );
             return Ok(Some(Hover {
                 contents: HoverContents::Markup(MarkupContent {
@@ -444,14 +564,28 @@ impl LanguageServer for Backend {
             }));
         }
 
+        // Check if hovering over a module name
         if let Some(module) = psycore::interpreter::native::get_module(&upper_word) {
             let mut functions_list = String::new();
-            for f_name in module.functions.keys() {
-                functions_list.push_str(&format!("- `{}`\n", f_name));
+            for (f_name, f_info) in &module.functions {
+                let params: Vec<String> = f_info
+                    .parameters
+                    .iter()
+                    .map(|(p, t)| format!("{} {}", p, t))
+                    .collect();
+                functions_list.push_str(&format!(
+                    "  • `{}({}) -> {}`\n",
+                    f_name,
+                    params.join(", "),
+                    f_info.return_type
+                ));
+            }
+            for c_name in module.constants.keys() {
+                functions_list.push_str(&format!("  • `{}` (constant)\n", c_name));
             }
             let content = format!(
-                "**{}** — Standard System Library Module\n\n**Exposed Bindings:**\n{}",
-                word, functions_list
+                "**{}** — Native Module\n\n{}\n\n**Exposed Bindings:**\n{}",
+                word, module.description, functions_list
             );
             return Ok(Some(Hover {
                 contents: HoverContents::Markup(MarkupContent {
@@ -460,42 +594,11 @@ impl LanguageServer for Backend {
                 }),
                 range: Some(range),
             }));
-        }
-
-        for m_name in &["_MATH", "_FS", "_TIME", "_CRYPTO"] {
-            if let Some(module) = psycore::interpreter::native::get_module(m_name) {
-                if module.functions.contains_key(upper_word.as_str()) {
-                    let content = format!(
-                        "**{}** — Native Core Standard Library Function (From `{}` module)",
-                        word, m_name
-                    );
-                    return Ok(Some(Hover {
-                        contents: HoverContents::Markup(MarkupContent {
-                            kind: MarkupKind::Markdown,
-                            value: content,
-                        }),
-                        range: Some(range),
-                    }));
-                }
-                if module.constants.contains_key(upper_word.as_str()) {
-                    let content = format!(
-                        "**{}** — Native Built-In constant Allocation (From `{}` module)",
-                        word, m_name
-                    );
-                    return Ok(Some(Hover {
-                        contents: HoverContents::Markup(MarkupContent {
-                            kind: MarkupKind::Markdown,
-                            value: content,
-                        }),
-                        range: Some(range),
-                    }));
-                }
-            }
         }
 
         Ok(None)
     }
-
+    
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
         let uri = params.text_document_position.text_document.uri;
         let docs = self.documents.lock().await;
@@ -520,14 +623,15 @@ impl LanguageServer for Backend {
         }
 
         let current_line = params.text_document_position.position.line;
-        for m_name in &["_MATH", "_FS", "_TIME", "_CRYPTO"] {
-            if !doc_state.imported_modules.contains(*m_name) {
+        for m_name in psycore::interpreter::native::module_names() {
+            if !doc_state.imported_modules.contains(m_name) {
+                let module_desc = psycore::interpreter::native::get_module(m_name)
+                    .map(|m| m.description.to_string())
+                    .unwrap_or_default();
                 items.push(CompletionItem {
                     label: format!("IMPORT {}", m_name),
                     kind: Some(CompletionItemKind::MODULE),
-                    detail: Some(format!(
-                        "Inject core module layout statement cleanly at line 1"
-                    )),
+                    detail: Some(module_desc),
                     additional_text_edits: Some(vec![TextEdit {
                         range: Range {
                             start: Position {
@@ -562,30 +666,47 @@ impl LanguageServer for Backend {
                 });
             }
 
-            if doc_state.imported_modules.contains(*m_name) {
+            if doc_state.imported_modules.contains(m_name) {
                 if let Some(mod_reg) = psycore::interpreter::native::get_module(m_name) {
-                    for f_name in mod_reg.functions.keys() {
+                    for (f_name, f_info) in &mod_reg.functions {
                         if doc_state.variable_types.contains_key(&f_name[..]) {
                             continue;
                         }
+                        let params: Vec<String> = f_info
+                            .parameters
+                            .iter()
+                            .map(|(p, t)| format!("{}: {}", p, t))
+                            .collect();
                         items.push(CompletionItem {
                             label: f_name.to_string(),
                             kind: Some(CompletionItemKind::FUNCTION),
-                            detail: Some(format!("Native binding from {}", m_name)),
+                            detail: Some(format!(
+                                "{} -> {}",
+                                params.join(", "),
+                                f_info.return_type
+                            )),
+                            documentation: Some(Documentation::MarkupContent(MarkupContent {
+                                kind: MarkupKind::Markdown,
+                                value: format!(
+                                    "**{}**\n\n{}\n\n**Returns:** {}",
+                                    f_name, f_info.description, f_info.return_type
+                                ),
+                            })),
                             ..Default::default()
                         });
                     }
-                    for c_name in mod_reg.constants.keys() {
+                    for (c_name, c_info) in &mod_reg.constants {
                         if doc_state.variable_types.contains_key(&c_name[..]) {
                             continue;
                         }
                         items.push(CompletionItem {
                             label: c_name.to_string(),
                             kind: Some(CompletionItemKind::CONSTANT),
-                            detail: Some(format!(
-                                "Native static constant constant from {}",
-                                m_name
-                            )),
+                            detail: Some(format!("{}: {}", c_name, c_info.constant_type)),
+                            documentation: Some(Documentation::MarkupContent(MarkupContent {
+                                kind: MarkupKind::Markdown,
+                                value: format!("**{}**\n\n{}", c_name, c_info.description),
+                            })),
                             ..Default::default()
                         });
                     }
@@ -849,24 +970,52 @@ fn walk_statements(statements: &[Spanned<Statement>], ctx: &mut SemanticContext)
 
                     if let Some(funcs) = &m.functions {
                         for f in funcs {
-                            ctx.variable_types.insert(f.clone(), InferredType::Unknown);
-                            ctx.variable_types
-                                .insert(f.to_uppercase(), InferredType::Unknown);
+                            // Try to get the actual type from the native module
+                            let inferred_type = if let Some(ref mod_reg) = native_module {
+                                if let Some(func_info) = mod_reg.get_function_info(f.as_str()) {
+                                    InferredType::from_str(func_info.return_type)
+                                } else if let Some(const_info) =
+                                    mod_reg.get_constant_info(f.as_str())
+                                {
+                                    InferredType::from_str(const_info.constant_type)
+                                } else {
+                                    InferredType::Unknown
+                                }
+                            } else {
+                                InferredType::Unknown
+                            };
 
+                            ctx.variable_types.insert(f.clone(), inferred_type.clone());
+                            ctx.variable_types.insert(f.to_uppercase(), inferred_type);
+                            // Also add to function_returns for native functions
                             if let Some(ref mod_reg) = native_module {
-                                if !mod_reg.functions.contains_key(f.as_str())
-                                    && !mod_reg.functions.contains_key(f.to_uppercase().as_str())
+                                if let Some(func_info) = mod_reg.get_function_info(f.as_str()) {
+                                    ctx.function_returns.insert(
+                                        f.clone(),
+                                        InferredType::from_str(func_info.return_type),
+                                    );
+                                    ctx.function_returns.insert(
+                                        f.to_uppercase(),
+                                        InferredType::from_str(func_info.return_type),
+                                    );
+                                }
+                            }
+
+                            // Check if the function actually exists in the module
+                            if let Some(ref mod_reg) = native_module {
+                                if !mod_reg.has_function(f.as_str())
+                                    && !mod_reg.has_function(f.to_uppercase().as_str())
                                 {
                                     ctx.diagnostics.push(Diagnostic {
-                                        range: Range {
-                                            start: Position { line: spanned.line.saturating_sub(1) as u32, character: spanned.column.saturating_sub(1) as u32 },
-                                            end: Position { line: spanned.line.saturating_sub(1) as u32, character: (spanned.column.saturating_sub(1) + 6) as u32 },
-                                        },
-                                        severity: Some(DiagnosticSeverity::ERROR),
-                                        source: Some("psy-analysis".to_string()),
-                                        message: format!("Signature Error: Binding '{}' does not exist inside core system module '{}'.", f, m.name),
-                                        ..Default::default()
-                                    });
+                            range: Range {
+                                start: Position { line: spanned.line.saturating_sub(1) as u32, character: spanned.column.saturating_sub(1) as u32 },
+                                end: Position { line: spanned.line.saturating_sub(1) as u32, character: (spanned.column.saturating_sub(1) + 6) as u32 },
+                            },
+                            severity: Some(DiagnosticSeverity::ERROR),
+                            source: Some("psy-analysis".to_string()),
+                            message: format!("Signature Error: Binding '{}' does not exist inside core system module '{}'.", f, m.name),
+                            ..Default::default()
+                        });
                                 }
                             }
                         }
@@ -1032,76 +1181,16 @@ fn walk_expression(expr: &Expression, ctx: &mut SemanticContext) {
 
             let upper = name.to_uppercase();
 
-            // Check bare package associations inside ctx.imported_modules first
+            // Check if the function is from an imported native module
             let mut matched_native_module = false;
-            if ctx.imported_modules.contains("_TIME")
-                && ["NOW", "NOWMS", "FORMATTIME", "SLEEP", "SLEEPMS"].contains(&upper.as_str())
-            {
-                matched_native_module = true;
-            } else if ctx.imported_modules.contains("_MATH")
-                && [
-                    "SIN",
-                    "COS",
-                    "TAN",
-                    "SQRT",
-                    "POW",
-                    "ABS",
-                    "ROUND",
-                    "FLOOR",
-                    "CEIL",
-                    "MEAN",
-                    "MEDIAN",
-                    "MODE",
-                    "VARIANCE",
-                    "STDDEV",
-                    "MIN",
-                    "MAX",
-                    "SUM",
-                    "PRODUCT",
-                    "GCD",
-                    "LCM",
-                    "ASIN",
-                    "ACOS",
-                    "ATAN",
-                    "LOG",
-                    "LOG10",
-                    "EXP",
-                    "FACTORIAL",
-                    "MATRIX_DETERMINANT",
-                    "DOT",
-                    "MATRIX_ADD",
-                    "MATRIX_MULTIPLY",
-                    "MATRIX_TRANSPOSE",
-                    "MATRIX_INVERSE",
-                    "CROSS",
-                    "IS_PRIME",
-                ]
-                .contains(&upper.as_str())
-            {
-                matched_native_module = true;
-            } else if ctx.imported_modules.contains("_FS")
-                && ["EXISTS", "ISFILE", "ISDIR", "DELETE", "READFILE", "LISTDIR"]
-                    .contains(&upper.as_str())
-            {
-                matched_native_module = true;
-            } else if ctx.imported_modules.contains("_CRYPTO")
-                && [
-                    "ENCRYPT",
-                    "DECRYPT",
-                    "HASH",
-                    "BASE64_ENCODE",
-                    "BASE64_DECODE",
-                    "HMAC_GENERATE",
-                    "HMAC_VERIFY",
-                    "AES_ENCRYPT",
-                    "AES_DECRYPT",
-                    "RSA_GENERATE_KEY",
-                    "RSA_ENCRYPT",
-                    "RSA_DECRYPT",
-                ]
-                .contains(&upper.as_str())
-            {
-                matched_native_module = true;
+            for m_name in &ctx.imported_modules {
+                let upper_mod = m_name.to_uppercase();
+                if let Some(module) = psycore::interpreter::native::get_module(&upper_mod) {
+                    if module.has_function(&upper) || module.has_constant(&upper) {
+                        matched_native_module = true;
+                        break;
+                    }
+                }
             }
 
             if ctx.function_params.contains_key(name) {
@@ -1263,77 +1352,17 @@ fn infer_expression_type(expr: &Expression, ctx: &SemanticContext) -> InferredTy
         Expression::ArrayAccess { .. } => InferredType::Number,
         Expression::FunctionCall { name, .. } => {
             let upper = name.to_uppercase();
-            if upper == "IS_PRIME"
-                || upper == "EXISTS"
-                || upper == "ISFILE"
-                || upper == "ISDIR"
-                || upper == "DELETE"
-                || upper == "HMAC_VERIFY"
-            {
-                return InferredType::Boolean;
+
+            // Check native modules for return type information
+            for m_name in psycore::interpreter::native::module_names() {
+                if let Some(module) = psycore::interpreter::native::get_module(m_name) {
+                    if let Some(func_info) = module.get_function_info(&upper) {
+                        return InferredType::from_str(func_info.return_type);
+                    }
+                }
             }
-            if upper == "READFILE"
-                || upper == "FORMATTIME"
-                || upper == "ENCRYPT"
-                || upper == "DECRYPT"
-                || upper == "HASH"
-                || upper == "BASE64_ENCODE"
-                || upper == "BASE64_DECODE"
-                || upper == "HMAC_GENERATE"
-                || upper == "AES_ENCRYPT"
-                || upper == "AES_DECRYPT"
-                || upper == "RSA_GENERATE_KEY"
-                || upper == "RSA_ENCRYPT"
-                || upper == "RSA_DECRYPT"
-            {
-                return InferredType::String;
-            }
-            if upper == "LISTDIR"
-                || upper == "MATRIX_ADD"
-                || upper == "MATRIX_MULTIPLY"
-                || upper == "MATRIX_TRANSPOSE"
-                || upper == "MATRIX_INVERSE"
-                || upper == "CROSS"
-            {
-                return InferredType::Array;
-            }
-            if [
-                "SIN",
-                "COS",
-                "TAN",
-                "SQRT",
-                "POW",
-                "ABS",
-                "ROUND",
-                "FLOOR",
-                "CEIL",
-                "MEAN",
-                "MEDIAN",
-                "MODE",
-                "VARIANCE",
-                "STDDEV",
-                "MIN",
-                "MAX",
-                "SUM",
-                "PRODUCT",
-                "GCD",
-                "LCM",
-                "ASIN",
-                "ACOS",
-                "ATAN",
-                "LOG",
-                "LOG10",
-                "EXP",
-                "FACTORIAL",
-                "NOW",
-                "NOWMS",
-                "MATRIX_DETERMINANT",
-                "DOT",
-            ]
-            .contains(&upper.as_str())
-            {
-                return InferredType::Number;
-            }
+
+            // Fall back to local function returns
             ctx.function_returns
                 .get(name)
                 .cloned()
