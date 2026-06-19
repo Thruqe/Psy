@@ -1,4 +1,4 @@
-IMPORT _TIME[NOWMS, NOW]
+IMPORT _TIME[NOWMS]
 
 START
     OUTPUT "--- Performance Benchmark ---"

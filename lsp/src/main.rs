@@ -70,7 +70,7 @@ pub struct Backend {
     client: Client,
     documents: Arc<Mutex<HashMap<Url, DocumentState>>>,
     global_exports:
-        Arc<Mutex<HashMap<String, (InferredType, Vec<(String, InferredType)>, String)>>>,
+        Arc<Mutex<HashMap<String, (InferredType, Vec<(String, InferredType)>, String, Url)>>>,
 }
 
 const KEYWORDS: &[(&str, StaticSymbol)] = &[
@@ -399,7 +399,7 @@ impl LanguageServer for Backend {
 
         {
             let exports = self.global_exports.lock().await;
-            if let Some((ret_type, params, kind_str)) = exports.get(&word) {
+            if let Some((ret_type, params, kind_str, _)) = exports.get(&word) {
                 let hover_text = if kind_str == "FUNCTION" {
                     let param_strs: Vec<String> = params
                         .iter()
@@ -519,13 +519,48 @@ impl LanguageServer for Backend {
             });
         }
 
+        let current_line = params.text_document_position.position.line;
         for m_name in &["_MATH", "_FS", "_TIME", "_CRYPTO"] {
-            items.push(CompletionItem {
-                label: m_name.to_string(),
-                kind: Some(CompletionItemKind::MODULE),
-                detail: Some(format!("Core runtime framework suite module")),
-                ..Default::default()
-            });
+            if !doc_state.imported_modules.contains(*m_name) {
+                items.push(CompletionItem {
+                    label: format!("IMPORT {}", m_name),
+                    kind: Some(CompletionItemKind::MODULE),
+                    detail: Some(format!(
+                        "Inject core module layout statement cleanly at line 1"
+                    )),
+                    additional_text_edits: Some(vec![TextEdit {
+                        range: Range {
+                            start: Position {
+                                line: 0,
+                                character: 0,
+                            },
+                            end: Position {
+                                line: 0,
+                                character: 0,
+                            },
+                        },
+                        new_text: format!("IMPORT {}[]\n", m_name),
+                    }]),
+                    text_edit: Some(CompletionTextEdit::Edit(TextEdit {
+                        range: Range {
+                            start: Position {
+                                line: current_line,
+                                character: params
+                                    .text_document_position
+                                    .position
+                                    .character
+                                    .saturating_sub(1),
+                            },
+                            end: Position {
+                                line: current_line,
+                                character: params.text_document_position.position.character,
+                            },
+                        },
+                        new_text: "".to_string(),
+                    })),
+                    ..Default::default()
+                });
+            }
 
             if doc_state.imported_modules.contains(*m_name) {
                 if let Some(mod_reg) = psycore::interpreter::native::get_module(m_name) {
@@ -541,6 +576,9 @@ impl LanguageServer for Backend {
                         });
                     }
                     for c_name in mod_reg.constants.keys() {
+                        if doc_state.variable_types.contains_key(&c_name[..]) {
+                            continue;
+                        }
                         items.push(CompletionItem {
                             label: c_name.to_string(),
                             kind: Some(CompletionItemKind::CONSTANT),
@@ -557,7 +595,7 @@ impl LanguageServer for Backend {
 
         {
             let exports = self.global_exports.lock().await;
-            for (exp_name, (ret_type, _, kind_str)) in exports.iter() {
+            for (exp_name, (ret_type, _, kind_str, _)) in exports.iter() {
                 if !doc_state.variable_types.contains_key(exp_name) {
                     let item_kind = match kind_str.as_str() {
                         "FUNCTION" => CompletionItemKind::FUNCTION,
@@ -614,13 +652,41 @@ impl Backend {
         };
 
         {
+            let mut exports = self.global_exports.lock().await;
+            exports.retain(|_, (_, _, _, origin_url)| origin_url != uri);
+        }
+
+        {
             let exports = self.global_exports.lock().await;
-            for (exp_name, (ret_type, params, _)) in exports.iter() {
+            for (exp_name, (ret_type, params, _, _)) in exports.iter() {
                 ctx.variable_types
                     .insert(exp_name.clone(), ret_type.clone());
                 ctx.function_returns
                     .insert(exp_name.clone(), ret_type.clone());
                 ctx.function_params.insert(exp_name.clone(), params.clone());
+            }
+        }
+
+        let mut block_execution_started = false;
+        for spanned_stmt in &ast {
+            match &spanned_stmt.node {
+                Statement::Import { .. } => {
+                    if block_execution_started {
+                        ctx.diagnostics.push(Diagnostic {
+                            range: Range {
+                                start: Position { line: spanned_stmt.line.saturating_sub(1) as u32, character: spanned_stmt.column.saturating_sub(1) as u32 },
+                                end: Position { line: spanned_stmt.line.saturating_sub(1) as u32, character: (spanned_stmt.column.saturating_sub(1) + 6) as u32 },
+                            },
+                            severity: Some(DiagnosticSeverity::ERROR),
+                            source: Some("psy-analysis".to_string()),
+                            message: "Layout Constraint Error: IMPORT statements must appear at the top of the file before any block initializations.".to_string(),
+                            ..Default::default()
+                        });
+                    }
+                }
+                _ => {
+                    block_execution_started = true;
+                }
             }
         }
 
@@ -654,16 +720,22 @@ impl Backend {
                                 .collect();
                             exports.insert(
                                 name.clone(),
-                                (ret, params_mappings, "FUNCTION".to_string()),
+                                (ret, params_mappings, "FUNCTION".to_string(), uri.clone()),
                             );
                         }
                         Statement::ConstDeclaration { name, expression } => {
                             let t = infer_expression_type(&expression.node, &ctx);
-                            exports.insert(name.clone(), (t, Vec::new(), "CONST".to_string()));
+                            exports.insert(
+                                name.clone(),
+                                (t, Vec::new(), "CONST".to_string(), uri.clone()),
+                            );
                         }
                         Statement::StaticDeclaration { name, expression } => {
                             let t = infer_expression_type(&expression.node, &ctx);
-                            exports.insert(name.clone(), (t, Vec::new(), "STATIC".to_string()));
+                            exports.insert(
+                                name.clone(),
+                                (t, Vec::new(), "STATIC".to_string(), uri.clone()),
+                            );
                         }
                         _ => {}
                     }
@@ -958,50 +1030,131 @@ fn walk_expression(expr: &Expression, ctx: &mut SemanticContext) {
                 walk_expression(&arg.node, ctx);
             }
 
-            if let Some(expected_params) = ctx.function_params.get(name).cloned() {
-                if arguments.len() != expected_params.len() {
-                    ctx.diagnostics.push(Diagnostic {
-                        range: Range {
-                            start: Position {
-                                line: 0,
-                                character: 0,
-                            },
-                            end: Position {
-                                line: 0,
-                                character: 0,
-                            },
-                        },
-                        severity: Some(DiagnosticSeverity::ERROR),
-                        source: Some("psy-typecheck".to_string()),
-                        message: format!(
-                            "Routines call '{}' requires exactly {} inputs, but received {}.",
-                            name,
-                            expected_params.len(),
-                            arguments.len()
-                        ),
-                        ..Default::default()
-                    });
-                } else {
-                    for (i, arg) in arguments.iter().enumerate() {
-                        let arg_type = infer_expression_type(&arg.node, ctx);
-                        let (_, param_type) = &expected_params[i];
-                        if *param_type != InferredType::Unknown
-                            && arg_type != InferredType::Unknown
-                            && arg_type != *param_type
-                        {
-                            ctx.diagnostics.push(Diagnostic {
-                                range: Range {
-                                    start: Position { line: arg.line.saturating_sub(1) as u32, character: arg.column.saturating_sub(1) as u32 },
-                                    end: Position { line: arg.line.saturating_sub(1) as u32, character: (arg.column.saturating_sub(1) + 1) as u32 },
+            let upper = name.to_uppercase();
+
+            // Check bare package associations inside ctx.imported_modules first
+            let mut matched_native_module = false;
+            if ctx.imported_modules.contains("_TIME")
+                && ["NOW", "NOWMS", "FORMATTIME", "SLEEP", "SLEEPMS"].contains(&upper.as_str())
+            {
+                matched_native_module = true;
+            } else if ctx.imported_modules.contains("_MATH")
+                && [
+                    "SIN",
+                    "COS",
+                    "TAN",
+                    "SQRT",
+                    "POW",
+                    "ABS",
+                    "ROUND",
+                    "FLOOR",
+                    "CEIL",
+                    "MEAN",
+                    "MEDIAN",
+                    "MODE",
+                    "VARIANCE",
+                    "STDDEV",
+                    "MIN",
+                    "MAX",
+                    "SUM",
+                    "PRODUCT",
+                    "GCD",
+                    "LCM",
+                    "ASIN",
+                    "ACOS",
+                    "ATAN",
+                    "LOG",
+                    "LOG10",
+                    "EXP",
+                    "FACTORIAL",
+                    "MATRIX_DETERMINANT",
+                    "DOT",
+                    "MATRIX_ADD",
+                    "MATRIX_MULTIPLY",
+                    "MATRIX_TRANSPOSE",
+                    "MATRIX_INVERSE",
+                    "CROSS",
+                    "IS_PRIME",
+                ]
+                .contains(&upper.as_str())
+            {
+                matched_native_module = true;
+            } else if ctx.imported_modules.contains("_FS")
+                && ["EXISTS", "ISFILE", "ISDIR", "DELETE", "READFILE", "LISTDIR"]
+                    .contains(&upper.as_str())
+            {
+                matched_native_module = true;
+            } else if ctx.imported_modules.contains("_CRYPTO")
+                && [
+                    "ENCRYPT",
+                    "DECRYPT",
+                    "HASH",
+                    "BASE64_ENCODE",
+                    "BASE64_DECODE",
+                    "HMAC_GENERATE",
+                    "HMAC_VERIFY",
+                    "AES_ENCRYPT",
+                    "AES_DECRYPT",
+                    "RSA_GENERATE_KEY",
+                    "RSA_ENCRYPT",
+                    "RSA_DECRYPT",
+                ]
+                .contains(&upper.as_str())
+            {
+                matched_native_module = true;
+            }
+
+            if ctx.function_params.contains_key(name) {
+                if let Some(expected_params) = ctx.function_params.get(name).cloned() {
+                    if arguments.len() != expected_params.len() {
+                        ctx.diagnostics.push(Diagnostic {
+                            range: Range {
+                                start: Position {
+                                    line: 0,
+                                    character: 0,
                                 },
-                                severity: Some(DiagnosticSeverity::ERROR),
-                                source: Some("psy-typecheck".to_string()),
-                                message: format!("Argument position {} expected type '{}' but instead evaluated to '{}'.", i + 1, param_type.to_str(), arg_type.to_str()),
-                                ..Default::default()
-                            });
+                                end: Position {
+                                    line: 0,
+                                    character: 0,
+                                },
+                            },
+                            severity: Some(DiagnosticSeverity::ERROR),
+                            source: Some("psy-typecheck".to_string()),
+                            message: format!(
+                                "Routines call '{}' requires exactly {} inputs, but received {}.",
+                                name,
+                                expected_params.len(),
+                                arguments.len()
+                            ),
+                            ..Default::default()
+                        });
+                    } else {
+                        for (i, arg) in arguments.iter().enumerate() {
+                            let arg_type = infer_expression_type(&arg.node, ctx);
+                            let (_, param_type) = &expected_params[i];
+                            if *param_type != InferredType::Unknown
+                                && arg_type != InferredType::Unknown
+                                && arg_type != *param_type
+                            {
+                                ctx.diagnostics.push(Diagnostic {
+                                    range: Range {
+                                        start: Position { line: arg.line.saturating_sub(1) as u32, character: arg.column.saturating_sub(1) as u32 },
+                                        end: Position { line: arg.line.saturating_sub(1) as u32, character: (arg.column.saturating_sub(1) + 1) as u32 },
+                                    },
+                                    severity: Some(DiagnosticSeverity::ERROR),
+                                    source: Some("psy-typecheck".to_string()),
+                                    message: format!("Argument position {} expected type '{}' but instead evaluated to '{}'.", i + 1, param_type.to_str(), arg_type.to_str()),
+                                    ..Default::default()
+                                });
+                            }
                         }
                     }
                 }
+            } else if ctx.variable_types.contains_key(name)
+                || ctx.variable_types.contains_key(&upper)
+                || matched_native_module
+            {
+                // Resolved successfully
             } else {
                 ctx.diagnostics.push(Diagnostic {
                     range: Range {

@@ -1,5 +1,5 @@
 IMPORT _TIME[NOW, NOWMS, SLEEP, SLEEPMS, FORMATTIME]
-
+        
 START
     OUTPUT "╔════════════════════════════════╗"
     OUTPUT "║   TIME MODULE COMPLETE TEST    ║"
