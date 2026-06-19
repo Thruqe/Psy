@@ -112,17 +112,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "core"
-version = "0.1.0"
-dependencies = [
- "crypto",
- "fs",
- "math",
- "time",
- "types",
-]
-
-[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -485,6 +474,7 @@ name = "lsp"
 version = "0.1.0"
 dependencies = [
  "once_cell",
+ "psycore",
  "regex",
  "serde",
  "serde_json",
@@ -622,8 +612,19 @@ dependencies = [
 name = "psy"
 version = "0.1.0"
 dependencies = [
- "core",
+ "psycore",
  "syntax",
+]
+
+[[package]]
+name = "psycore"
+version = "0.1.0"
+dependencies = [
+ "crypto",
+ "fs",
+ "math",
+ "time",
+ "types",
 ]
 
 [[package]]
@@ -844,7 +845,7 @@ dependencies = [
 name = "syntax"
 version = "0.1.0"
 dependencies = [
- "core",
+ "psycore",
 ]
 
 [[package]]

@@ -1,81 +1,243 @@
-use once_cell::sync::Lazy;
-use syntax::symbols::{Symbol, SymbolKind};
-use syntax::{Diagnostic as PsyDiagnostic, Severity as PsySeverity};
-use serde::Deserialize;
-use std::collections::HashMap;
-use std::fs;
-use std::path::PathBuf;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
-#[derive(Debug, Deserialize)]
-struct SymbolInfo {
-    description: String,
-    detail: String,
-    example: String,
+use psycore::parser::ast::{Expression, OutputValue, Spanned, Statement};
+use syntax::symbols::Symbol;
+
+struct StaticSymbol {
+    description: &'static str,
+    detail: &'static str,
+    example: &'static str,
 }
 
-#[derive(Debug, Deserialize)]
-struct ModuleInfo {
-    description: String,
-    detail: String,
-    functions: HashMap<String, SymbolInfo>,
+/// Dynamic type inferred from tracking expressions in structural context
+#[derive(Debug, Clone, PartialEq)]
+enum InferredType {
+    Number,
+    String,
+    Boolean,
+    Array,
+    Unknown,
 }
 
-#[derive(Debug, Deserialize)]
-struct Definitions {
-    keywords: HashMap<String, SymbolInfo>,
-    modules: HashMap<String, ModuleInfo>,
-    builtins: HashMap<String, SymbolInfo>,
+impl InferredType {
+    fn to_str(&self) -> &'static str {
+        match self {
+            InferredType::Number => "Number",
+            InferredType::String => "String",
+            InferredType::Boolean => "Boolean",
+            InferredType::Array => "Array",
+            InferredType::Unknown => "Unknown",
+        }
+    }
 }
 
-/// Per-document state tracked across open/change events.
+/// Tracks complete lexical variable metadata, block contexts, and signatures.
+struct SemanticContext {
+    variable_types: HashMap<String, InferredType>,
+    function_returns: HashMap<String, InferredType>,
+    imported_modules: HashSet<String>,
+    used_names: HashSet<String>,
+}
+
 #[derive(Default)]
 struct DocumentState {
     content: String,
-    /// Symbols collected from the parsed AST — variables, functions,
-    /// consts, statics, imported names, etc.
     symbols: Vec<Symbol>,
-    /// Set of function/identifier names actually referenced in calls,
-    /// used to detect unused imports. Derived from the symbol list
-    /// (Import-kind symbols that don't appear as Identifiers in the AST).
-    imported_names: HashMap<String, String>, // name -> module
-    used_names: std::collections::HashSet<String>,
+    variable_types: HashMap<String, InferredType>,
+    function_returns: HashMap<String, InferredType>,
+    imported_modules: HashSet<String>,
+    used_names: HashSet<String>,
 }
-
-static DEFINITIONS: Lazy<Definitions> = Lazy::new(|| {
-    let paths_to_try = [
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("definitions.json"),
-        PathBuf::from("lsp/definitions.json"),
-        PathBuf::from("definitions.json"),
-        std::env::current_exe()
-            .ok()
-            .and_then(|exe| exe.parent().map(|p| p.join("definitions.json")))
-            .unwrap_or(PathBuf::from("definitions.json")),
-        PathBuf::from("../lsp/definitions.json"),
-    ];
-
-    for path in paths_to_try.iter() {
-        if let Ok(content) = fs::read_to_string(path) {
-            if let Ok(defs) = serde_json::from_str(&content) {
-                return defs;
-            }
-        }
-    }
-
-    panic!(
-        "Failed to read definitions.json from any of the tried paths: {:?}",
-        paths_to_try
-    );
-});
 
 pub struct Backend {
     client: Client,
     documents: Arc<Mutex<HashMap<Url, DocumentState>>>,
 }
+
+// Inlined core documentation mappings replacing external JSON dependencies
+const KEYWORDS: &[(&str, StaticSymbol)] = &[
+    (
+        "START",
+        StaticSymbol {
+            description: "Program marker",
+            detail: "Denotes program start block initialization.",
+            example: "START\n    OUTPUT \"Hello\"\nEND",
+        },
+    ),
+    (
+        "END",
+        StaticSymbol {
+            description: "Program termination marker",
+            detail: "Denotes clean completion of the executable environment context.",
+            example: "START\nEND",
+        },
+    ),
+    (
+        "IF",
+        StaticSymbol {
+            description: "Conditional execution branch",
+            detail: "Evaluates matching conditions sequentially.",
+            example: "IF test == true THEN\n    OUTPUT \"Passed\"\nENDIF",
+        },
+    ),
+    (
+        "THEN",
+        StaticSymbol {
+            description: "Conditional true directive",
+            detail: "Binds conditional blocks closely to evaluated criteria.",
+            example: "IF x == 1 THEN\n    OUTPUT x\nENDIF",
+        },
+    ),
+    (
+        "ELSE",
+        StaticSymbol {
+            description: "Default execution path fallback",
+            detail: "Executes statements when prior criteria fail expressions.",
+            example: "IF x == 1 THEN\n    OUTPUT 1\nELSE\n    OUTPUT 0\nENDIF",
+        },
+    ),
+    (
+        "ELSEIF",
+        StaticSymbol {
+            description: "Secondary choice block evaluation",
+            detail: "Chains independent evaluations cleanly.",
+            example: "IF x == 1 THEN\n    OUTPUT 1\nELSEIF x == 2 THEN\n    OUTPUT 2\nENDIF",
+        },
+    ),
+    (
+        "ENDIF",
+        StaticSymbol {
+            description: "Conditional terminator statement",
+            detail: "Closes the block evaluation frame neatly.",
+            example: "IF flag THEN\n    OUTPUT \"Yes\"\nENDIF",
+        },
+    ),
+    (
+        "FOR",
+        StaticSymbol {
+            description: "Definite iteration step loop",
+            detail: "Iterates an tracking counter variable over an explicit bounds context.",
+            example: "FOR i = 1 TO 10\n    OUTPUT i\nENDFOR",
+        },
+    ),
+    (
+        "TO",
+        StaticSymbol {
+            description: "Iteration endpoint criteria",
+            detail: "Configures higher bounds constraints in numeric loops.",
+            example: "FOR target = 0 TO 100\nENDFOR",
+        },
+    ),
+    (
+        "ENDFOR",
+        StaticSymbol {
+            description: "Loop boundary closer",
+            detail: "Closes a definite collection iteration block loop context.",
+            example: "FOR i = 1 TO 5\nENDFOR",
+        },
+    ),
+    (
+        "WHILE",
+        StaticSymbol {
+            description: "Indefinite iteration execution block",
+            detail: "Loops matching statements iteratively while constraints compute true.",
+            example: "WHILE active == true\nENDWHILE",
+        },
+    ),
+    (
+        "ENDWHILE",
+        StaticSymbol {
+            description: "While iteration closer",
+            detail: "Closes an active running logical evaluation block sequence cleanly.",
+            example: "WHILE flag\nENDWHILE",
+        },
+    ),
+    (
+        "FUNCTION",
+        StaticSymbol {
+            description: "Declares modular local executable routines",
+            detail: "Encapsulates execution context blocks using clear argument bounds identifiers.",
+            example: "FUNCTION calc(a, b)\n    RETURN a + b\nENDFUNCTION",
+        },
+    ),
+    (
+        "ENDFUNCTION",
+        StaticSymbol {
+            description: "Routine block closer",
+            detail: "Closes active encapsulation of custom callable code environments.",
+            example: "FUNCTION inline()\nENDFUNCTION",
+        },
+    ),
+    (
+        "RETURN",
+        StaticSymbol {
+            description: "Renders evaluated outputs out of active contexts",
+            detail: "Stops execution in routine code frames immediately, throwing back results.",
+            example: "RETURN static_val",
+        },
+    ),
+    (
+        "INPUT",
+        StaticSymbol {
+            description: "Read standard workspace terminal inputs",
+            detail: "Captures user responses into defined memory storage references dynamically.",
+            example: "INPUT target_var",
+        },
+    ),
+    (
+        "OUTPUT",
+        StaticSymbol {
+            description: "Writes evaluated values out to standard streams",
+            detail: "Dumps strings, calculated values, or indices explicitly.",
+            example: "OUTPUT \"Result:\", computed_val",
+        },
+    ),
+    (
+        "DECLARE",
+        StaticSymbol {
+            description: "Allocates uniform array collection references",
+            detail: "Sets static memory boundaries for safe structural indexed access tracks.",
+            example: "DECLARE matrix[10]",
+        },
+    ),
+    (
+        "CONST",
+        StaticSymbol {
+            description: "Immutable evaluation allocation",
+            detail: "Binds identifiers tightly to singular constants that cannot change.",
+            example: "CONST MAX = 100",
+        },
+    ),
+    (
+        "STATIC",
+        StaticSymbol {
+            description: "Preserved assignment lifetime storage",
+            detail: "Retains values cleanly across subsequent invocation updates safely.",
+            example: "STATIC tracking_counter = 0",
+        },
+    ),
+    (
+        "PUB",
+        StaticSymbol {
+            description: "Export visibility definition toggle",
+            detail: "Allows other workspaces or consumer code scopes to access underlying assets.",
+            example: "PUB FUNCTION shared_api()\nENDFUNCTION",
+        },
+    ),
+    (
+        "IMPORT",
+        StaticSymbol {
+            description: "Pulls targeted functionality systems into global environments",
+            detail: "Links internal frameworks to native math, filesystem, or cryptographic modules.",
+            example: "IMPORT _MATH [_SIN, _COS]",
+        },
+    ),
+];
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
@@ -93,7 +255,7 @@ impl LanguageServer for Backend {
                 ..Default::default()
             },
             server_info: Some(ServerInfo {
-                name: "lsp".to_string(),
+                name: "psy-lsp".to_string(),
                 version: Some(env!("CARGO_PKG_VERSION").to_string()),
             }),
         })
@@ -101,7 +263,7 @@ impl LanguageServer for Backend {
 
     async fn initialized(&self, _: InitializedParams) {
         self.client
-            .log_message(MessageType::INFO, "lsp initialized")
+            .log_message(MessageType::INFO, "Psy Native LSP Engine Activated.")
             .await;
     }
 
@@ -112,28 +274,14 @@ impl LanguageServer for Backend {
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let uri = params.text_document.uri.clone();
         let text = params.text_document.text;
-
-        let state = analyze_document(&text);
-        {
-            let mut docs = self.documents.lock().await;
-            docs.insert(uri.clone(), state);
-        }
-
-        self.check_and_publish(&uri, &text).await;
+        self.parse_and_publish(&uri, &text).await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         if let Some(change) = params.content_changes.into_iter().last() {
             let uri = params.text_document.uri.clone();
             let text = change.text;
-
-            let state = analyze_document(&text);
-            {
-                let mut docs = self.documents.lock().await;
-                docs.insert(uri.clone(), state);
-            }
-
-            self.check_and_publish(&uri, &text).await;
+            self.parse_and_publish(&uri, &text).await;
         }
     }
 
@@ -142,7 +290,6 @@ impl LanguageServer for Backend {
             let mut docs = self.documents.lock().await;
             docs.remove(&params.text_document.uri);
         }
-
         self.client
             .publish_diagnostics(params.text_document.uri, vec![], None)
             .await;
@@ -164,9 +311,37 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
-        // 1. Check user-defined symbols first (highest priority —
-        //    user's own definitions should win over built-in docs)
-        if let Some(hover_text) = hover_for_user_symbol(&word, &doc_state.symbols) {
+        // 1. Check user-defined items with inferred types attached
+        if let Some(symbol) = doc_state.symbols.iter().find(|s| s.name == word) {
+            let hover_text = match &symbol.kind {
+                syntax::symbols::SymbolKind::Function { parameters } => {
+                    let ret_type = doc_state
+                        .function_returns
+                        .get(&word)
+                        .cloned()
+                        .unwrap_or(InferredType::Unknown);
+                    format!(
+                        "```psy\nFUNCTION {}({}) -> {}\n```\n\n*User-defined routine* — line {}",
+                        symbol.name,
+                        parameters.join(", "),
+                        ret_type.to_str(),
+                        symbol.line
+                    )
+                }
+                _ => {
+                    let var_type = doc_state
+                        .variable_types
+                        .get(&word)
+                        .cloned()
+                        .unwrap_or(InferredType::Unknown);
+                    format!(
+                        "**{}** — Type: `{}`\n\nDeclared or tracked at line {}",
+                        symbol.name,
+                        var_type.to_str(),
+                        symbol.line
+                    )
+                }
+            };
             return Ok(Some(Hover {
                 contents: HoverContents::Markup(MarkupContent {
                     kind: MarkupKind::Markdown,
@@ -176,15 +351,71 @@ impl LanguageServer for Backend {
             }));
         }
 
-        // 2. Check static definitions (keywords, builtins, module fns)
-        if let Some(info) = get_static_symbol_info(&word) {
+        // 2. Check Static Language Keywords
+        let upper_word = word.to_uppercase();
+        if let Some((_, info)) = KEYWORDS.iter().find(|(k, _)| *k == upper_word) {
+            let content = format!(
+                "**{}** — {}\n\n{}\n\n```psy\n{}\n```",
+                word, info.description, info.detail, info.example
+            );
             return Ok(Some(Hover {
                 contents: HoverContents::Markup(MarkupContent {
                     kind: MarkupKind::Markdown,
-                    value: info,
+                    value: content,
                 }),
                 range: Some(range),
             }));
+        }
+
+        // 3. Check Native Structural Modules and Native Functions directly
+        if let Some(module) = psycore::interpreter::native::get_module(&upper_word) {
+            let mut functions_list = String::new();
+            for f_name in module.functions.keys() {
+                functions_list.push_str(&format!("- `{}`\n", f_name));
+            }
+            let content = format!(
+                "**{}** — Standard System Library Module\n\n**Exposed Bindings:**\n{}",
+                word, functions_list
+            );
+            return Ok(Some(Hover {
+                contents: HoverContents::Markup(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: content,
+                }),
+                range: Some(range),
+            }));
+        }
+
+        // Scan inside system modules for functions matching invocation calls
+        for m_name in &["_MATH", "_FS", "_TIME", "_CRYPTO"] {
+            if let Some(module) = psycore::interpreter::native::get_module(m_name) {
+                if module.functions.contains_key(upper_word.as_str()) {
+                    let content = format!(
+                        "**{}** — Native Core Standard Library Function (From `{}` module)",
+                        word, m_name
+                    );
+                    return Ok(Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: content,
+                        }),
+                        range: Some(range),
+                    }));
+                }
+                if module.constants.contains_key(upper_word.as_str()) {
+                    let content = format!(
+                        "**{}** — Native Built-In constant Allocation (From `{}` module)",
+                        word, m_name
+                    );
+                    return Ok(Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: content,
+                        }),
+                        range: Some(range),
+                    }));
+                }
+            }
         }
 
         Ok(None)
@@ -192,22 +423,20 @@ impl LanguageServer for Backend {
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
         let uri = params.text_document_position.text_document.uri;
-        let _position = params.text_document_position.position;
-
         let docs = self.documents.lock().await;
         let doc_state = match docs.get(&uri) {
             Some(doc) => doc,
             None => return Ok(None),
         };
 
-        let mut items: Vec<CompletionItem> = Vec::new();
+        let mut items = Vec::new();
 
-        // Add keyword completions
-        for (keyword, info) in &DEFINITIONS.keywords {
+        // Standard Keyword Completions
+        for (kw, info) in KEYWORDS {
             items.push(CompletionItem {
-                label: keyword.clone(),
+                label: kw.to_string(),
                 kind: Some(CompletionItemKind::KEYWORD),
-                detail: Some(info.description.clone()),
+                detail: Some(info.description.to_string()),
                 documentation: Some(Documentation::MarkupContent(MarkupContent {
                     kind: MarkupKind::Markdown,
                     value: format!("{}\n\n```psy\n{}\n```", info.detail, info.example),
@@ -216,85 +445,56 @@ impl LanguageServer for Backend {
             });
         }
 
-        // Add builtin completions
-        for (name, info) in &DEFINITIONS.builtins {
+        // Built-in Module Suggestions
+        for m_name in &["_MATH", "_FS", "_TIME", "_CRYPTO"] {
             items.push(CompletionItem {
-                label: name.clone(),
-                kind: Some(CompletionItemKind::FUNCTION),
-                detail: Some(info.description.clone()),
-                documentation: Some(Documentation::MarkupContent(MarkupContent {
-                    kind: MarkupKind::Markdown,
-                    value: format!("{}\n\n```psy\n{}\n```", info.detail, info.example),
-                })),
+                label: m_name.to_string(),
+                kind: Some(CompletionItemKind::MODULE),
+                detail: Some(format!("Core runtime framework suite module")),
                 ..Default::default()
             });
-        }
 
-        // Add imported module function completions
-        for (module_name, module) in &DEFINITIONS.modules {
-            for (func_name, func_info) in &module.functions {
-                // Only offer if this module has been imported
-                if doc_state.imported_names.contains_key(func_name) {
-                    items.push(CompletionItem {
-                        label: func_name.clone(),
-                        kind: Some(CompletionItemKind::FUNCTION),
-                        detail: Some(format!("{} (from {})", func_info.description, module_name)),
-                        documentation: Some(Documentation::MarkupContent(MarkupContent {
-                            kind: MarkupKind::Markdown,
-                            value: format!(
-                                "{}\n\n```psy\n{}\n```",
-                                func_info.detail, func_info.example
-                            ),
-                        })),
-                        ..Default::default()
-                    });
+            // Automatically augment suggestions if module imports are verified active in tree state
+            if doc_state.imported_modules.contains(*m_name) {
+                if let Some(mod_reg) = psycore::interpreter::native::get_module(m_name) {
+                    for f_name in mod_reg.functions.keys() {
+                        items.push(CompletionItem {
+                            label: f_name.to_string(),
+                            kind: Some(CompletionItemKind::FUNCTION),
+                            detail: Some(format!("Native binding from {}", m_name)),
+                            ..Default::default()
+                        });
+                    }
+                    for c_name in mod_reg.constants.keys() {
+                        items.push(CompletionItem {
+                            label: c_name.to_string(),
+                            kind: Some(CompletionItemKind::CONSTANT),
+                            detail: Some(format!(
+                                "Native static constant constant from {}",
+                                m_name
+                            )),
+                            ..Default::default()
+                        });
+                    }
                 }
             }
         }
 
-        // Add user-defined symbols from the current document
+        // Local Document Symbols
         for symbol in &doc_state.symbols {
-            let (kind, detail) = match &symbol.kind {
-                SymbolKind::Function { parameters } => (
-                    CompletionItemKind::FUNCTION,
-                    format!("Function({})", parameters.join(", ")),
-                ),
-                SymbolKind::Variable => (CompletionItemKind::VARIABLE, "Variable".to_string()),
-                SymbolKind::Const => (CompletionItemKind::CONSTANT, "Constant".to_string()),
-                SymbolKind::Static => (CompletionItemKind::VARIABLE, "Static variable".to_string()),
-                SymbolKind::Array { size } => {
-                    (CompletionItemKind::VARIABLE, format!("Array[{}]", size))
-                }
-                SymbolKind::Import { module } => (
-                    CompletionItemKind::FUNCTION,
-                    format!("Imported from {}", module),
-                ),
+            let kind = match &symbol.kind {
+                syntax::symbols::SymbolKind::Function { .. } => CompletionItemKind::FUNCTION,
+                syntax::symbols::SymbolKind::Const => CompletionItemKind::CONSTANT,
+                _ => CompletionItemKind::VARIABLE,
             };
-
             items.push(CompletionItem {
                 label: symbol.name.clone(),
                 kind: Some(kind),
-                detail: Some(detail),
-                insert_text: Some(match &symbol.kind {
-                    SymbolKind::Function { parameters } if !parameters.is_empty() => {
-                        // Snippet with placeholders for each parameter
-                        let snippet_params: Vec<String> = parameters
-                            .iter()
-                            .enumerate()
-                            .map(|(i, p)| format!("${{{}:{}}}", i + 1, p))
-                            .collect();
-                        format!("{}({})", symbol.name, snippet_params.join(", "))
-                    }
-                    SymbolKind::Function { .. } => format!("{}()", symbol.name),
-                    _ => symbol.name.clone(),
-                }),
-                insert_text_format: Some(InsertTextFormat::SNIPPET),
                 ..Default::default()
             });
         }
 
-        // Deduplicate by label (user symbols override static ones with same name)
-        let mut seen = std::collections::HashSet::new();
+        let mut seen = HashSet::new();
         items.retain(|item| seen.insert(item.label.clone()));
 
         Ok(Some(CompletionResponse::Array(items)))
@@ -302,46 +502,55 @@ impl LanguageServer for Backend {
 }
 
 impl Backend {
-    async fn check_and_publish(&self, uri: &Url, source: &str) {
-        let diagnostics = syntax::check(source);
-        let mut lsp_diagnostics: Vec<Diagnostic> = diagnostics
-            .iter()
-            .map(|d| convert_diagnostic(d))
-            .collect();
+    async fn parse_and_publish(&self, uri: &Url, source: &str) {
+        let (ast, mut diagnostics) = syntax::parse_ast(source);
+        let symbols = syntax::symbols(source);
 
-        // Add unused import warnings using AST-backed symbol info
-        let docs = self.documents.lock().await;
-        if let Some(state) = docs.get(uri) {
-            for symbol in &state.symbols {
-                if let SymbolKind::Import { module } = &symbol.kind {
-                    if !state.used_names.contains(&symbol.name) {
-                        lsp_diagnostics.push(Diagnostic {
-                            range: Range {
-                                start: Position {
-                                    line: symbol.line.saturating_sub(1) as u32,
-                                    character: symbol.column.saturating_sub(1) as u32,
-                                },
-                                end: Position {
-                                    line: symbol.line.saturating_sub(1) as u32,
-                                    character: (symbol.column.saturating_sub(1) + symbol.name.len())
-                                        as u32,
-                                },
-                            },
-                            severity: Some(DiagnosticSeverity::WARNING),
-                            code: None,
-                            code_description: None,
-                            source: Some("lsp".to_string()),
-                            message: format!(
-                                "Imported '{}' from {} is never used",
-                                symbol.name, module
-                            ),
-                            related_information: None,
-                            tags: Some(vec![DiagnosticTag::UNNECESSARY]),
-                            data: None,
-                        });
-                    }
+        let mut ctx = SemanticContext {
+            variable_types: HashMap::new(),
+            function_returns: HashMap::new(),
+            imported_modules: HashSet::new(),
+            used_names: HashSet::new(),
+        };
+
+        // Recursively visit every single AST statement and nested structural expression tree
+        walk_statements(&ast, &mut ctx);
+
+        let mut lsp_diagnostics: Vec<Diagnostic> =
+            diagnostics.iter().map(|d| convert_diagnostic(d)).collect();
+
+        // Produce standard diagnostic highlights for unused imports cleanly
+        for symbol in &symbols {
+            if let syntax::symbols::SymbolKind::Import { module } = &symbol.kind {
+                if !ctx.used_names.contains(&symbol.name) {
+                    lsp_diagnostics.push(Diagnostic {
+                        range: Range {
+                            start: Position { line: symbol.line.saturating_sub(1) as u32, character: symbol.column.saturating_sub(1) as u32 },
+                            end: Position { line: symbol.line.saturating_sub(1) as u32, character: (symbol.column.saturating_sub(1) + symbol.name.len()) as u32 },
+                        },
+                        severity: Some(DiagnosticSeverity::WARNING),
+                        source: Some("psy-analysis".to_string()),
+                        message: format!("Imported routine binding '{}' from module {} is defined but never used.", symbol.name, module),
+                        tags: Some(vec![DiagnosticTag::UNNECESSARY]),
+                        ..Default::default()
+                    });
                 }
             }
+        }
+
+        {
+            let mut docs = self.documents.lock().await;
+            docs.insert(
+                uri.clone(),
+                DocumentState {
+                    content: source.to_string(),
+                    symbols,
+                    variable_types: ctx.variable_types,
+                    function_returns: ctx.function_returns,
+                    imported_modules: ctx.imported_modules,
+                    used_names: ctx.used_names,
+                },
+            );
         }
 
         self.client
@@ -350,123 +559,171 @@ impl Backend {
     }
 }
 
-/// Analyzes a document by running the real parser and collecting symbols
-/// from the AST — no regex, no fragile text scanning.
-fn analyze_document(content: &str) -> DocumentState {
-    let symbols = syntax::symbols(content);
-
-    let mut imported_names: HashMap<String, String> = HashMap::new();
-    let mut used_names = std::collections::HashSet::new();
-
-    for symbol in &symbols {
-        match &symbol.kind {
-            SymbolKind::Import { module } => {
-                imported_names.insert(symbol.name.clone(), module.clone());
+fn walk_statements(statements: &[Spanned<Statement>], ctx: &mut SemanticContext) {
+    for spanned in statements {
+        match &spanned.node {
+            Statement::Import { modules } => {
+                for m in modules {
+                    ctx.imported_modules.insert(m.name.clone());
+                    if let Some(funcs) = &m.functions {
+                        // Gather function references explicitly tracking imports
+                        for f in funcs {
+                            ctx.variable_types.insert(f.clone(), InferredType::Unknown);
+                        }
+                    }
+                }
             }
-            SymbolKind::Variable | SymbolKind::Const | SymbolKind::Static => {
-                used_names.insert(symbol.name.clone());
+            Statement::Assign {
+                variable,
+                expression,
+            } => {
+                let expr_type = infer_expression_type(&expression.node);
+                ctx.variable_types.insert(variable.clone(), expr_type);
+                walk_expression(&expression.node, ctx);
+            }
+            Statement::ConstDeclaration { name, expression } => {
+                let expr_type = infer_expression_type(&expression.node);
+                ctx.variable_types.insert(name.clone(), expr_type);
+                walk_expression(&expression.node, ctx);
+            }
+            Statement::StaticDeclaration { name, expression } => {
+                let expr_type = infer_expression_type(&expression.node);
+                ctx.variable_types.insert(name.clone(), expr_type);
+                walk_expression(&expression.node, ctx);
+            }
+            Statement::FunctionDeclaration {
+                name,
+                parameters,
+                body,
+            } => {
+                for param in parameters {
+                    ctx.variable_types
+                        .insert(param.clone(), InferredType::Unknown);
+                }
+
+                // Track deep returns inside routine container blocks to isolate function return types structural models
+                let mut routine_returns = InferredType::Unknown;
+                for stmt in body {
+                    if let Statement::Return { value: Some(expr) } = &stmt.node {
+                        routine_returns = infer_expression_type(&expr.node);
+                    }
+                }
+                ctx.function_returns.insert(name.clone(), routine_returns);
+                walk_statements(body, ctx);
+            }
+            Statement::If {
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+            } => {
+                walk_expression(&condition.node, ctx);
+                walk_statements(then_branch, ctx);
+                for (c, b) in else_if_branches {
+                    walk_expression(&c.node, ctx);
+                    walk_statements(b, ctx);
+                }
+                walk_statements(else_branch, ctx);
+            }
+            Statement::ForLoop {
+                variable,
+                start,
+                end,
+                body,
+            } => {
+                ctx.variable_types
+                    .insert(variable.clone(), InferredType::Number);
+                walk_expression(&start.node, ctx);
+                walk_expression(&end.node, ctx);
+                walk_statements(body, ctx);
+            }
+            Statement::WhileLoop { condition, body } => {
+                walk_expression(&condition.node, ctx);
+                walk_statements(body, ctx);
+            }
+            Statement::Return { value: Some(expr) } => {
+                walk_expression(&expr.node, ctx);
+            }
+            Statement::ExpressionStatement(expr) => {
+                walk_expression(&expr.node, ctx);
+            }
+            Statement::Output { values } => {
+                for val in values {
+                    if let OutputValue::Expression(e) = val {
+                        walk_expression(&e.node, ctx);
+                    }
+                }
+            }
+            Statement::ArrayAssign { name, index, value } => {
+                ctx.used_names.insert(name.clone());
+                walk_expression(&index.node, ctx);
+                walk_expression(&value.node, ctx);
+            }
+            Statement::Public(inner) => {
+                walk_statements(&[*inner.clone()], ctx);
             }
             _ => {}
         }
     }
+}
 
-    DocumentState {
-        content: content.to_string(),
-        symbols,
-        imported_names,
-        used_names,
+fn walk_expression(expr: &Expression, ctx: &mut SemanticContext) {
+    match expr {
+        Expression::Identifier(name) => {
+            ctx.used_names.insert(name.clone());
+        }
+        Expression::FunctionCall { name, arguments } => {
+            ctx.used_names.insert(name.clone());
+            for arg in arguments {
+                walk_expression(&arg.node, ctx);
+            }
+        }
+        Expression::BinaryOp { left, right, .. } => {
+            walk_expression(&left.node, ctx);
+            walk_expression(&right.node, ctx);
+        }
+        Expression::UnaryOp { expr, .. } => {
+            walk_expression(&expr.node, ctx);
+        }
+        Expression::ArrayAccess { name, index } => {
+            ctx.used_names.insert(name.clone());
+            walk_expression(&index.node, ctx);
+        }
+        Expression::ArrayLiteral(elements) => {
+            for el in elements {
+                walk_expression(&el.node, ctx);
+            }
+        }
+        _ => {}
     }
 }
 
-/// Generates hover text for a user-defined symbol found in the document's
-/// symbol table — functions show their signature, variables/consts show
-/// their kind and declaration line.
-fn hover_for_user_symbol(word: &str, symbols: &[Symbol]) -> Option<String> {
-    let symbol = symbols.iter().find(|s| s.name == word)?;
-
-    match &symbol.kind {
-        SymbolKind::Function { parameters } => {
-            let sig = if parameters.is_empty() {
-                format!("FUNCTION {}()", symbol.name)
-            } else {
-                format!("FUNCTION {}({})", symbol.name, parameters.join(", "))
-            };
-            Some(format!(
-                "```psy\n{}\n```\n\n*User-defined function* — declared at line {}",
-                sig, symbol.line
-            ))
-        }
-        SymbolKind::Variable => Some(format!(
-            "**{}** — variable, first assigned at line {}",
-            symbol.name, symbol.line
-        )),
-        SymbolKind::Const => Some(format!(
-            "**{}** — constant, declared at line {}",
-            symbol.name, symbol.line
-        )),
-        SymbolKind::Static => Some(format!(
-            "**{}** — static variable (persists across calls), declared at line {}",
-            symbol.name, symbol.line
-        )),
-        SymbolKind::Array { size } => Some(format!(
-            "**{}** — array of size {}, declared at line {}",
-            symbol.name, size, symbol.line
-        )),
-        SymbolKind::Import { module } => Some(format!(
-            "**{}** — imported from `{}`\n\nSee module documentation for details.",
-            symbol.name, module
-        )),
+fn infer_expression_type(expr: &Expression) -> InferredType {
+    match expr {
+        Expression::Number(_) => InferredType::Number,
+        Expression::String(_) => InferredType::String,
+        Expression::Boolean(_) => InferredType::Boolean,
+        Expression::ArrayLiteral(_) => InferredType::Array,
+        Expression::BinaryOp { left, operator, .. } => match operator {
+            psycore::parser::ast::Operator::Add
+            | psycore::parser::ast::Operator::Subtract
+            | psycore::parser::ast::Operator::Multiply
+            | psycore::parser::ast::Operator::Divide
+            | psycore::parser::ast::Operator::Modulo
+            | psycore::parser::ast::Operator::Power => InferredType::Number,
+            _ => InferredType::Boolean,
+        },
+        Expression::UnaryOp { operator, .. } => match operator {
+            psycore::parser::ast::UnaryOperator::Negate => InferredType::Number,
+            psycore::parser::ast::UnaryOperator::Not => InferredType::Boolean,
+        },
+        _ => InferredType::Unknown,
     }
-}
-
-/// Looks up a word in the static definitions file — keywords, builtins,
-/// and module functions. Returns formatted Markdown hover content or None.
-fn get_static_symbol_info(word: &str) -> Option<String> {
-    let word_upper = word.to_uppercase();
-
-    if let Some(info) = DEFINITIONS.keywords.get(&word_upper) {
-        return Some(format!(
-            "**{}** — {}\n\n{}\n\n```psy\n{}\n```",
-            word, info.description, info.detail, info.example
-        ));
-    }
-
-    if let Some(info) = DEFINITIONS.builtins.get(&word_upper) {
-        return Some(format!(
-            "**{}** — {}\n\n{}\n\n```psy\n{}\n```",
-            word, info.description, info.detail, info.example
-        ));
-    }
-
-    for (module_name, module) in &DEFINITIONS.modules {
-        if let Some(info) = module.functions.get(&word_upper) {
-            return Some(format!(
-                "**{}** — {} *(from `{}`)*\n\n{}\n\n```psy\n{}\n```",
-                word, info.description, module_name, info.detail, info.example
-            ));
-        }
-    }
-
-    if let Some(module) = DEFINITIONS.modules.get(&word_upper) {
-        let mut functions_list = String::new();
-        let mut sorted_funcs: Vec<(&String, &SymbolInfo)> = module.functions.iter().collect();
-        sorted_funcs.sort_by_key(|(name, _)| name.as_str());
-        for (func_name, func_info) in sorted_funcs {
-            functions_list.push_str(&format!("- `{}`: {}\n", func_name, func_info.description));
-        }
-        return Some(format!(
-            "**{}** — {}\n\n{}\n\n**Available functions:**\n{}",
-            word, module.description, module.detail, functions_list
-        ));
-    }
-
-    None
 }
 
 fn get_word_at_position(document: &str, position: &Position) -> Option<(String, Range)> {
     let lines: Vec<&str> = document.lines().collect();
     let line = lines.get(position.line as usize)?;
-
     if position.character as usize > line.len() {
         return None;
     }
@@ -485,7 +742,6 @@ fn get_word_at_position(document: &str, position: &Position) -> Option<(String, 
     if start == end {
         return None;
     }
-
     let word: String = chars[start..end].iter().collect();
 
     Some((
@@ -503,13 +759,12 @@ fn get_word_at_position(document: &str, position: &Position) -> Option<(String, 
     ))
 }
 
-fn convert_diagnostic(d: &PsyDiagnostic) -> Diagnostic {
+fn convert_diagnostic(d: &syntax::diagnostics::Diagnostic) -> Diagnostic {
     let line = d.line.saturating_sub(1) as u32;
     let column = d.column.saturating_sub(1) as u32;
-
     let severity = match d.severity {
-        PsySeverity::Error => DiagnosticSeverity::ERROR,
-        PsySeverity::Warning => DiagnosticSeverity::WARNING,
+        psycore::parser::Severity::Error => DiagnosticSeverity::ERROR,
+        psycore::parser::Severity::Warning => DiagnosticSeverity::WARNING,
     };
 
     let mut message = d.message.clone();
@@ -530,13 +785,9 @@ fn convert_diagnostic(d: &PsyDiagnostic) -> Diagnostic {
             },
         },
         severity: Some(severity),
-        code: None,
-        code_description: None,
-        source: Some("syntax".to_string()),
+        source: Some("psy-syntax".to_string()),
         message,
-        related_information: None,
-        tags: None,
-        data: None,
+        ..Default::default()
     }
 }
 
@@ -544,7 +795,6 @@ fn convert_diagnostic(d: &PsyDiagnostic) -> Diagnostic {
 async fn main() {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
-
     let (service, socket) = LspService::new(|client| Backend {
         client,
         documents: Arc::new(Mutex::new(HashMap::new())),

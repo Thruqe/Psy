@@ -1,11 +1,11 @@
-pub mod syntax;
 pub mod diagnostics;
 pub mod rules;
 pub mod symbols;
+pub mod syntax;
 
-pub use syntax::{check, symbols};
 pub use diagnostics::{Diagnostic, Severity};
 pub use symbols::{Symbol, SymbolKind, collect_symbols};
+pub use syntax::{check, parse_ast, symbols};
 
 #[cfg(test)]
 mod tests {

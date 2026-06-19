@@ -8,5 +8,5 @@ name = "psy"
 path = "src/main.rs"
 
 [dependencies]
-core = { path = "../core" }
+psycore = { path = "../core" }
 syntax = { path = "../syntax" }

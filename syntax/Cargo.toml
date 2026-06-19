@@ -7,4 +7,4 @@ edition.workspace = true
 path = "src/lib.rs"
 
 [dependencies]
-core = { path = "../core" }
+psycore = { path = "../core" }

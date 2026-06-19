@@ -1,4 +1,4 @@
-use core::parser::ast::{Spanned, Statement};
+use psycore::parser::ast::{Spanned, Statement};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SymbolKind {

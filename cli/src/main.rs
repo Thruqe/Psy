@@ -1,7 +1,7 @@
-use core::formatter::Formatter;
-use core::interpreter::Interpreter;
-use core::lexer::Lexer;
-use core::parser::Parser;
+use psycore::formatter::Formatter;
+use psycore::interpreter::Interpreter;
+use psycore::lexer::Lexer;
+use psycore::parser::Parser;
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -136,7 +136,7 @@ fn main() {
 /// siblings export a name that collides.
 fn load_sibling_exports(
     entry_filename: &str,
-) -> Result<Vec<core::interpreter::Export>, String> {
+) -> Result<Vec<psycore::interpreter::Export>, String> {
     let entry_path = Path::new(entry_filename);
     let dir = match entry_path.parent() {
         Some(p) if !p.as_os_str().is_empty() => p,
@@ -161,7 +161,7 @@ fn load_sibling_exports(
     }
     sibling_paths.sort();
 
-    let mut all_exports: Vec<core::interpreter::Export> = Vec::new();
+    let mut all_exports: Vec<psycore::interpreter::Export> = Vec::new();
     let mut seen_names: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for path in sibling_paths {
@@ -219,11 +219,11 @@ fn load_sibling_exports(
     Ok(all_exports)
 }
 
-fn export_name(export: &core::interpreter::Export) -> String {
+fn export_name(export: &psycore::interpreter::Export) -> String {
     match export {
-        core::interpreter::Export::Function { name, .. } => name.clone(),
-        core::interpreter::Export::Const { name, .. } => name.clone(),
-        core::interpreter::Export::Array { name, .. } => name.clone(),
+        psycore::interpreter::Export::Function { name, .. } => name.clone(),
+        psycore::interpreter::Export::Const { name, .. } => name.clone(),
+        psycore::interpreter::Export::Array { name, .. } => name.clone(),
     }
 }
 
