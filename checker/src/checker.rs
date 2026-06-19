@@ -22,3 +22,15 @@ pub fn check(source: &str) -> Vec<Diagnostic> {
         })
         .collect()
 }
+
+pub fn symbols(source: &str) -> Vec<crate::symbols::Symbol> {
+    use psy_core::lexer::Lexer;
+    use psy_core::parser::Parser;
+
+    let mut lexer = Lexer::new(source.to_string());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+    let (ast, _) = parser.parse();
+
+    crate::symbols::collect_symbols(&ast)
+}

@@ -1,4 +1,4 @@
-use psy_core::parser::ast::Statement;
+use psy_core::parser::ast::{Spanned, Statement};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SymbolKind {
@@ -18,128 +18,145 @@ pub struct Symbol {
     pub column: usize,
 }
 
-/// Walks the parsed statements (top-level program, or a function body)
-/// and collects every symbol declared at that level and within nested
-/// blocks (IF/FOR/WHILE), tracking function scope for STATIC variables
-/// along the way.
-///
-/// This intentionally does NOT track line/column for every symbol kind
-/// perfectly — DeclareArray/ConstDeclaration/StaticDeclaration carry no
-/// position info in the current AST (Statement nodes aren't tagged with
-/// source spans), so for now position defaults to (0, 0) for those.
-/// Only diagnostics carry real positions today; full go-to-definition
-/// support later would require tagging AST nodes with spans during
-/// parsing, which is a separate, larger change.
-pub fn collect_symbols(statements: &[Statement]) -> Vec<Symbol> {
+/// Walks the parsed statements and collects every symbol declared,
+/// including inside nested IF/FOR/WHILE blocks and function bodies,
+/// with real source positions from the Spanned AST nodes.
+pub fn collect_symbols(statements: &[Spanned<Statement>]) -> Vec<Symbol> {
     let mut symbols = Vec::new();
-    walk(statements, &mut symbols, None);
+    walk(statements, &mut symbols);
     symbols
 }
 
-fn walk(statements: &[Statement], symbols: &mut Vec<Symbol>, current_function: Option<&str>) {
-    for stmt in statements {
-        match unwrap_public(stmt) {
+fn walk(statements: &[Spanned<Statement>], symbols: &mut Vec<Symbol>) {
+    for spanned in statements {
+        let line = spanned.line;
+        let column = spanned.column;
+
+        match unwrap_public(&spanned.node) {
             Statement::Assign { variable, .. } => {
-                symbols.push(Symbol {
-                    name: variable.clone(),
-                    kind: SymbolKind::Variable,
-                    line: 0,
-                    column: 0,
-                });
+                push_if_new(
+                    symbols,
+                    Symbol {
+                        name: variable.clone(),
+                        kind: SymbolKind::Variable,
+                        line,
+                        column,
+                    },
+                );
             }
             Statement::Input { variables } => {
                 for v in variables {
-                    symbols.push(Symbol {
-                        name: v.clone(),
-                        kind: SymbolKind::Variable,
-                        line: 0,
-                        column: 0,
-                    });
+                    push_if_new(
+                        symbols,
+                        Symbol {
+                            name: v.clone(),
+                            kind: SymbolKind::Variable,
+                            line,
+                            column,
+                        },
+                    );
                 }
             }
             Statement::DeclareArray { name, size } => {
-                symbols.push(Symbol {
-                    name: name.clone(),
-                    kind: SymbolKind::Array { size: *size },
-                    line: 0,
-                    column: 0,
-                });
+                push_if_new(
+                    symbols,
+                    Symbol {
+                        name: name.clone(),
+                        kind: SymbolKind::Array { size: *size },
+                        line,
+                        column,
+                    },
+                );
             }
             Statement::ConstDeclaration { name, .. } => {
-                symbols.push(Symbol {
-                    name: name.clone(),
-                    kind: SymbolKind::Const,
-                    line: 0,
-                    column: 0,
-                });
+                push_if_new(
+                    symbols,
+                    Symbol {
+                        name: name.clone(),
+                        kind: SymbolKind::Const,
+                        line,
+                        column,
+                    },
+                );
             }
             Statement::StaticDeclaration { name, .. } => {
-                symbols.push(Symbol {
-                    name: name.clone(),
-                    kind: SymbolKind::Static,
-                    line: 0,
-                    column: 0,
-                });
+                push_if_new(
+                    symbols,
+                    Symbol {
+                        name: name.clone(),
+                        kind: SymbolKind::Static,
+                        line,
+                        column,
+                    },
+                );
             }
             Statement::FunctionDeclaration {
                 name,
                 parameters,
                 body,
             } => {
-                symbols.push(Symbol {
-                    name: name.clone(),
-                    kind: SymbolKind::Function {
-                        parameters: parameters.clone(),
+                push_if_new(
+                    symbols,
+                    Symbol {
+                        name: name.clone(),
+                        kind: SymbolKind::Function {
+                            parameters: parameters.clone(),
+                        },
+                        line,
+                        column,
                     },
-                    line: 0,
-                    column: 0,
-                });
-                // Parameters themselves are also valid identifiers
-                // within the function's own body.
+                );
+                // Parameters are valid identifiers within the function body
                 for param in parameters {
-                    symbols.push(Symbol {
-                        name: param.clone(),
-                        kind: SymbolKind::Variable,
-                        line: 0,
-                        column: 0,
-                    });
+                    push_if_new(
+                        symbols,
+                        Symbol {
+                            name: param.clone(),
+                            kind: SymbolKind::Variable,
+                            line,
+                            column,
+                        },
+                    );
                 }
-                walk(body, symbols, Some(name));
+                walk(body, symbols);
             }
             Statement::Import { modules } => {
                 for module_import in modules {
                     if let Some(names) = &module_import.functions {
-                        for name in names {
-                            symbols.push(Symbol {
-                                name: name.clone(),
-                                kind: SymbolKind::Import {
-                                    module: module_import.name.clone(),
+                        for func_name in names {
+                            push_if_new(
+                                symbols,
+                                Symbol {
+                                    name: func_name.clone(),
+                                    kind: SymbolKind::Import {
+                                        module: module_import.name.clone(),
+                                    },
+                                    line,
+                                    column,
                                 },
-                                line: 0,
-                                column: 0,
-                            });
+                            );
                         }
                     }
-                    // A bare `IMPORT _MATH` with no bracket list imports
-                    // everything from that module, but we don't have a
-                    // static registry listing here in the checker crate
-                    // (that lives in core::interpreter::native, which
-                    // the checker doesn't depend on). For now, bare
-                    // imports aren't expanded into individual symbols —
-                    // worth revisiting if that gap matters in practice.
+                    // bare IMPORT _MATH (no bracket list) is handled
+                    // separately since we'd need the native registry
+                    // to enumerate all exported names — not available
+                    // in the checker crate today.
                 }
             }
             Statement::ForLoop { variable, body, .. } => {
-                symbols.push(Symbol {
-                    name: variable.clone(),
-                    kind: SymbolKind::Variable,
-                    line: 0,
-                    column: 0,
-                });
-                walk(body, symbols, current_function);
+                push_if_new(
+                    symbols,
+                    Symbol {
+                        name: variable.clone(),
+                        kind: SymbolKind::Variable,
+                        line,
+                        column,
+                    },
+                );
+                walk(body, symbols);
             }
             Statement::WhileLoop { body, .. } => {
-                walk(body, symbols, current_function);
+                walk(body, symbols);
             }
             Statement::If {
                 then_branch,
@@ -147,20 +164,29 @@ fn walk(statements: &[Statement], symbols: &mut Vec<Symbol>, current_function: O
                 else_branch,
                 ..
             } => {
-                walk(then_branch, symbols, current_function);
+                walk(then_branch, symbols);
                 for (_, branch) in else_if_branches {
-                    walk(branch, symbols, current_function);
+                    walk(branch, symbols);
                 }
-                walk(else_branch, symbols, current_function);
+                walk(else_branch, symbols);
             }
             _ => {}
         }
     }
 }
 
+/// Only pushes a symbol if no symbol with the same name already exists,
+/// since the same variable name may be assigned multiple times (e.g. in
+/// a loop) and we only want the first declaration site.
+fn push_if_new(symbols: &mut Vec<Symbol>, symbol: Symbol) {
+    if !symbols.iter().any(|s| s.name == symbol.name) {
+        symbols.push(symbol);
+    }
+}
+
 fn unwrap_public(stmt: &Statement) -> &Statement {
     match stmt {
-        Statement::Public(inner) => inner,
+        Statement::Public(inner) => &inner.node,
         other => other,
     }
 }

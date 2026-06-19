@@ -1,0 +1,294 @@
+{
+    "keywords": {
+        "IF": {
+            "description": "Conditional statement",
+            "detail": "Executes a block of code if a condition is true.",
+            "example": "IF condition THEN\n    // code\nENDIF"
+        },
+        "ELSE": {
+            "description": "Alternative branch",
+            "detail": "Executes a block of code when an IF condition is false.",
+            "example": "IF condition THEN\n    // code\nELSE\n    // alternative code\nENDIF"
+        },
+        "ELSEIF": {
+            "description": "Additional condition",
+            "detail": "Checks another condition when previous IF/ELSEIF conditions are false.",
+            "example": "IF condition1 THEN\n    // code\nELSEIF condition2 THEN\n    // other code\nENDIF"
+        },
+        "FOR": {
+            "description": "Loop construct",
+            "detail": "Iterates from a start value to an end value.",
+            "example": "FOR i = 1 TO 10\n    // code\nENDFOR"
+        },
+        "TO": {
+            "description": "Range specifier",
+            "detail": "Used in FOR loops to specify the end value.",
+            "example": "FOR i = 1 TO 10\n    // code\nENDFOR"
+        },
+        "WHILE": {
+            "description": "Conditional loop",
+            "detail": "Repeats code while a condition is true.",
+            "example": "WHILE condition\n    // code\nENDWHILE"
+        },
+        "ENDWHILE": {
+            "description": "End while loop",
+            "detail": "Marks the end of a WHILE loop block.",
+            "example": "WHILE condition\n    // code\nENDWHILE"
+        },
+        "ENDFOR": {
+            "description": "End for loop",
+            "detail": "Marks the end of a FOR loop block.",
+            "example": "FOR i = 1 TO 10\n    // code\nENDFOR"
+        },
+        "ENDIF": {
+            "description": "End if block",
+            "detail": "Marks the end of an IF statement block.",
+            "example": "IF condition THEN\n    // code\nENDIF"
+        },
+        "FUNCTION": {
+            "description": "Function definition",
+            "detail": "Defines a reusable block of code.",
+            "example": "FUNCTION name(parameter1, parameter2)\n    // code\n    RETURN value\nENDFUNCTION"
+        },
+        "ENDFUNCTION": {
+            "description": "End function",
+            "detail": "Marks the end of a FUNCTION definition.",
+            "example": "FUNCTION name()\n    // code\nENDFUNCTION"
+        },
+        "RETURN": {
+            "description": "Return statement",
+            "detail": "Returns a value from a function.",
+            "example": "RETURN expression"
+        },
+        "DECLARE": {
+            "description": "Variable declaration",
+            "detail": "Declares a variable.",
+            "example": "DECLARE variable"
+        },
+        "IMPORT": {
+            "description": "Import module",
+            "detail": "Imports functions from another module.",
+            "example": "IMPORT module_name\nIMPORT module_name WITH (func1, func2)"
+        },
+        "PUB": {
+            "description": "Public modifier",
+            "detail": "Makes a function public (accessible from other modules).",
+            "example": "PUB FUNCTION name()\n    // code\nENDFUNCTION"
+        },
+        "CONST": {
+            "description": "Constant declaration",
+            "detail": "Declares a constant value that cannot be changed.",
+            "example": "CONST PI = 3.14159"
+        },
+        "STATIC": {
+            "description": "Static variable",
+            "detail": "Declares a static variable that persists between function calls.",
+            "example": "STATIC counter = 0"
+        },
+        "START": {
+            "description": "Program start",
+            "detail": "Marks the beginning of the program.",
+            "example": "START\n    // code\nEND"
+        },
+        "END": {
+            "description": "Program end",
+            "detail": "Marks the end of the program.",
+            "example": "START\n    // code\nEND"
+        }
+    },
+    "modules": {
+        "MATH": {   
+            "description": "Mathematical functions module",
+            "detail": "Provides various mathematical operations and constants.",
+            "functions": {
+                "ABS": {
+                    "description": "Absolute value",
+                    "detail": "Returns the absolute value of a number.",
+                    "example": "ABS(-5) // returns 5"
+                },
+                "SQRT": {
+                    "description": "Square root",
+                    "detail": "Returns the square root of a number.",
+                    "example": "SQRT(16) // returns 4"
+                },
+                "SIN": {
+                    "description": "Sine function",
+                    "detail": "Returns the sine of an angle (in radians).",
+                    "example": "SIN(0) // returns 0"
+                },
+                "COS": {
+                    "description": "Cosine function",
+                    "detail": "Returns the cosine of an angle (in radians).",
+                    "example": "COS(0) // returns 1"
+                },
+                "TAN": {
+                    "description": "Tangent function",
+                    "detail": "Returns the tangent of an angle (in radians).",
+                    "example": "TAN(0) // returns 0"
+                },
+                "PI": {
+                    "description": "Pi constant",
+                    "detail": "The mathematical constant π (3.14159...).",
+                    "example": "PI // returns 3.14159..."
+                },
+                "E": {
+                    "description": "Euler's number",
+                    "detail": "The mathematical constant e (2.71828...).",
+                    "example": "E // returns 2.71828..."
+                },
+                "LOG": {
+                    "description": "Natural logarithm",
+                    "detail": "Returns the natural logarithm (base e) of a number.",
+                    "example": "LOG(10) // returns 2.3025..."
+                },
+                "LOG10": {
+                    "description": "Base-10 logarithm",
+                    "detail": "Returns the base-10 logarithm of a number.",
+                    "example": "LOG10(100) // returns 2"
+                },
+                "EXP": {
+                    "description": "Exponential function",
+                    "detail": "Returns e raised to the power of a number.",
+                    "example": "EXP(1) // returns 2.71828..."
+                },
+                "POW": {
+                    "description": "Power function",
+                    "detail": "Returns a number raised to a power.",
+                    "example": "POW(2, 3) // returns 8"
+                },
+                "ROUND": {
+                    "description": "Round function",
+                    "detail": "Rounds a number to the nearest integer.",
+                    "example": "ROUND(3.7) // returns 4"
+                },
+                "FLOOR": {
+                    "description": "Floor function",
+                    "detail": "Returns the largest integer less than or equal to a number.",
+                    "example": "FLOOR(3.7) // returns 3"
+                },
+                "CEIL": {
+                    "description": "Ceiling function",
+                    "detail": "Returns the smallest integer greater than or equal to a number.",
+                    "example": "CEIL(3.2) // returns 4"
+                },
+                "RANDOM": {
+                    "description": "Random number",
+                    "detail": "Generates a random number between 0 and 1.",
+                    "example": "RANDOM() // returns 0.456..."
+                },
+                "RANDOM_INT": {
+                    "description": "Random integer",
+                    "detail": "Generates a random integer between min and max (inclusive).",
+                    "example": "RANDOM_INT(1, 10) // returns 7"
+                },
+                "MAX": {
+                    "description": "Maximum value",
+                    "detail": "Returns the maximum of two or more numbers.",
+                    "example": "MAX(5, 10) // returns 10"
+                },
+                "MIN": {
+                    "description": "Minimum value",
+                    "detail": "Returns the minimum of two or more numbers.",
+                    "example": "MIN(5, 10) // returns 5"
+                },
+                "CLAMP": {
+                    "description": "Clamp value",
+                    "detail": "Restricts a value to a specified range.",
+                    "example": "CLAMP(5, 1, 10) // returns 5\nCLAMP(15, 1, 10) // returns 10"
+                },
+                "LERP": {
+                    "description": "Linear interpolation",
+                    "detail": "Performs linear interpolation between two values.",
+                    "example": "LERP(0, 10, 0.5) // returns 5"
+                }
+            }
+        }
+    },
+    "builtins": {
+        "INPUT": {
+            "description": "Read input",
+            "detail": "Reads input from the user and stores it in a variable.",
+            "example": "INPUT variable\nINPUT var1, var2, var3"
+        },
+        "OUTPUT": {
+            "description": "Write output",
+            "detail": "Writes values to the output.",
+            "example": "OUTPUT value\nOUTPUT \"Hello\", value, 42"
+        },
+        "PRINT": {
+            "description": "Print to console",
+            "detail": "Prints a value to the console.",
+            "example": "PRINT value"
+        },
+        "LEN": {
+            "description": "Get length",
+            "detail": "Returns the length of a string or array.",
+            "example": "LEN(\"hello\") // returns 5\nLEN([1, 2, 3]) // returns 3"
+        },
+        "LENGTH": {
+            "description": "Get length",
+            "detail": "Returns the length of a string or array.",
+            "example": "LENGTH(\"hello\") // returns 5\nLENGTH([1, 2, 3]) // returns 3"
+        },
+        "SUBSTRING": {
+            "description": "Extract substring",
+            "detail": "Extracts a portion of a string.",
+            "example": "SUBSTRING(\"hello\", 2, 3) // returns \"ell\""
+        },
+        "MID": {
+            "description": "Extract substring",
+            "detail": "Extracts a portion of a string.",
+            "example": "MID(\"hello\", 2, 3) // returns \"ell\""
+        },
+        "LEFT": {
+            "description": "Left substring",
+            "detail": "Returns the leftmost N characters of a string.",
+            "example": "LEFT(\"hello\", 2) // returns \"he\""
+        },
+        "RIGHT": {
+            "description": "Right substring",
+            "detail": "Returns the rightmost N characters of a string.",
+            "example": "RIGHT(\"hello\", 2) // returns \"lo\""
+        },
+        "TRIM": {
+            "description": "Remove whitespace",
+            "detail": "Removes leading and trailing whitespace from a string.",
+            "example": "TRIM(\"  hello  \") // returns \"hello\""
+        },
+        "UPPER": {
+            "description": "Convert to uppercase",
+            "detail": "Converts a string to uppercase.",
+            "example": "UPPER(\"hello\") // returns \"HELLO\""
+        },
+        "LOWER": {
+            "description": "Convert to lowercase",
+            "detail": "Converts a string to lowercase.",
+            "example": "LOWER(\"HELLO\") // returns \"hello\""
+        },
+        "ASC": {
+            "description": "ASCII value",
+            "detail": "Returns the ASCII value of a character.",
+            "example": "ASC('A') // returns 65"
+        },
+        "CHR": {
+            "description": "Character from ASCII",
+            "detail": "Returns the character for a given ASCII value.",
+            "example": "CHR(65) // returns 'A'"
+        },
+        "VAL": {
+            "description": "Convert to number",
+            "detail": "Converts a string to a number.",
+            "example": "VAL(\"42\") // returns 42"
+        },
+        "STR": {
+            "description": "Convert to string",
+            "detail": "Converts a value to a string.",
+            "example": "STR(42) // returns \"42\""
+        },
+        "TYPE": {
+            "description": "Get type",
+            "detail": "Returns the type of a value.",
+            "example": "TYPE(42) // returns \"number\""
+        }
+    }
+}

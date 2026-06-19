@@ -1,9 +1,11 @@
 pub mod checker;
 pub mod diagnostics;
 pub mod rules;
+pub mod symbols;
 
-pub use checker::check;
+pub use checker::{check, symbols};
 pub use diagnostics::{Diagnostic, Severity};
+pub use symbols::{Symbol, SymbolKind, collect_symbols};
 
 #[cfg(test)]
 mod tests {

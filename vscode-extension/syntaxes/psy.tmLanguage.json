@@ -1,0 +1,283 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "Psy",
+    "scopeName": "source.psy",
+    "patterns": [
+        {
+            "include": "#comments"
+        },
+        {
+            "include": "#import-statement"
+        },
+        {
+            "include": "#module-functions"
+        },
+        {
+            "include": "#keywords"
+        },
+        {
+            "include": "#operators"
+        },
+        {
+            "include": "#numbers"
+        },
+        {
+            "include": "#strings"
+        },
+        {
+            "include": "#functions"
+        },
+        {
+            "include": "#variables"
+        },
+        {
+            "include": "#array-literals"
+        },
+        {
+            "include": "#parens"
+        }
+    ],
+    "repository": {
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.line.double-slash.psy",
+                    "match": "//.*$"
+                },
+                {
+                    "name": "comment.block.psy",
+                    "begin": "/\\*",
+                    "end": "\\*/"
+                }
+            ]
+        },
+        "import-statement": {
+            "patterns": [
+                {
+                    "name": "meta.import.psy",
+                    "begin": "\\b(IMPORT)\\b",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.other.psy"
+                        }
+                    },
+                    "end": "(?=$|\\n)",
+                    "patterns": [
+                        {
+                            "name": "entity.name.module.psy",
+                            "match": "_?[A-Z][A-Z0-9_]*",
+                            "comment": "Module names (uppercase with underscore)"
+                        },
+                        {
+                            "name": "meta.function-list.psy",
+                            "begin": "\\[",
+                            "end": "\\]",
+                            "patterns": [
+                                {
+                                    "name": "support.function.module.psy",
+                                    "match": "[A-Z_][A-Z0-9_]*",
+                                    "comment": "Module function names"
+                                },
+                                {
+                                    "name": "punctuation.separator.psy",
+                                    "match": ","
+                                }
+                            ]
+                        },
+                        {
+                            "include": "#comments"
+                        }
+                    ]
+                }
+            ]
+        },
+        "module-functions": {
+            "patterns": [
+                {
+                    "name": "support.function.module.math.psy",
+                    "match": "\\b(SIN|COS|TAN|ASIN|ACOS|ATAN|LOG|LOG10|EXP|FACTORIAL|GCD|LCM|IS_PRIME)\\b"
+                },
+                {
+                    "name": "support.function.module.string.psy",
+                    "match": "\\b(REPLACE|SPLIT|JOIN|STARTS_WITH|ENDS_WITH|CONTAINS|REVERSE|PAD_LEFT|PAD_RIGHT)\\b"
+                },
+                {
+                    "name": "support.function.module.array.psy",
+                    "match": "\\b(PUSH|POP|SHIFT|UNSHIFT|MAP|FILTER|REDUCE|FIND|INDEX_OF|CONCAT|SLICE)\\b"
+                }
+            ]
+        },
+        "keywords": {
+            "patterns": [
+                {
+                    "name": "keyword.control.psy",
+                    "match": "\\b(IF|ELSE|ELSEIF|THEN|ENDIF|FOR|TO|ENDFOR|WHILE|ENDWHILE|RETURN)\\b"
+                },
+                {
+                    "name": "keyword.declaration.psy",
+                    "match": "\\b(DECLARE|FUNCTION|ENDFUNCTION|PUB|CONST|STATIC)\\b"
+                },
+                {
+                    "name": "keyword.other.psy",
+                    "match": "\\b(START|END|INPUT|OUTPUT|IMPORT)\\b"
+                },
+                {
+                    "name": "keyword.operator.logical.psy",
+                    "match": "\\b(AND|OR|NOT)\\b"
+                },
+                {
+                    "name": "constant.language.psy",
+                    "match": "\\b(TRUE|FALSE)\\b"
+                }
+            ]
+        },
+        "operators": {
+            "patterns": [
+                {
+                    "name": "keyword.operator.arithmetic.psy",
+                    "match": "[+\\-*/%^]"
+                },
+                {
+                    "name": "keyword.operator.comparison.psy",
+                    "match": "(==|!=|<|>|<=|>=)"
+                },
+                {
+                    "name": "keyword.operator.assignment.psy",
+                    "match": "="
+                }
+            ]
+        },
+        "numbers": {
+            "patterns": [
+                {
+                    "name": "constant.numeric.integer.psy",
+                    "match": "\\b\\d+\\b"
+                },
+                {
+                    "name": "constant.numeric.float.psy",
+                    "match": "\\b\\d+\\.\\d+\\b"
+                }
+            ]
+        },
+        "strings": {
+            "patterns": [
+                {
+                    "name": "string.quoted.double.psy",
+                    "begin": "\"",
+                    "end": "\"",
+                    "patterns": [
+                        {
+                            "name": "constant.character.escape.psy",
+                            "match": "\\\\(n|t|r|\\\\|\"|')"
+                        }
+                    ]
+                },
+                {
+                    "name": "string.quoted.single.psy",
+                    "begin": "'",
+                    "end": "'",
+                    "patterns": [
+                        {
+                            "name": "constant.character.escape.psy",
+                            "match": "\\\\(n|t|r|\\\\|\"|')"
+                        }
+                    ]
+                }
+            ]
+        },
+        "functions": {
+            "patterns": [
+                {
+                    "name": "support.function.builtin.psy",
+                    "match": "\\b(INPUT|OUTPUT|PRINT|READ|WRITE|OPEN|CLOSE|LEN|LENGTH|SUBSTRING|MID|LEFT|RIGHT|TRIM|UPPER|LOWER|ASC|CHR|VAL|STR|TYPE)\\b"
+                },
+                {
+                    "name": "entity.name.function.psy",
+                    "match": "(?<=FUNCTION\\s+)[a-zA-Z_][a-zA-Z0-9_]*(?=\\s*\\()"
+                },
+                {
+                    "name": "support.function.psy",
+                    "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\s*\\(",
+                    "captures": {
+                        "0": {
+                            "name": "support.function.psy"
+                        }
+                    }
+                }
+            ]
+        },
+        "variables": {
+            "patterns": [
+                {
+                    "name": "variable.other.psy",
+                    "match": "(?<![A-Za-z0-9_])[a-zA-Z_][a-zA-Z0-9_]*(?![A-Za-z0-9_])\\s*(?!=)",
+                    "comment": "Matches identifiers that are NOT keywords"
+                },
+                {
+                    "name": "variable.other.psy",
+                    "match": "(?<![A-Za-z0-9_])[a-zA-Z_][a-zA-Z0-9_]*(?=\\s*\\[)",
+                    "comment": "Array names"
+                }
+            ]
+        },
+        "array-literals": {
+            "patterns": [
+                {
+                    "name": "meta.array.psy",
+                    "begin": "\\[",
+                    "end": "\\]",
+                    "patterns": [
+                        {
+                            "include": "#numbers"
+                        },
+                        {
+                            "include": "#strings"
+                        },
+                        {
+                            "include": "#variables"
+                        }
+                    ]
+                }
+            ]
+        },
+        "parens": {
+            "patterns": [
+                {
+                    "name": "meta.group.psy",
+                    "begin": "\\(",
+                    "end": "\\)",
+                    "patterns": [
+                        {
+                            "include": "#expressions"
+                        }
+                    ]
+                }
+            ]
+        },
+        "expressions": {
+            "patterns": [
+                {
+                    "include": "#numbers"
+                },
+                {
+                    "include": "#strings"
+                },
+                {
+                    "include": "#variables"
+                },
+                {
+                    "include": "#operators"
+                },
+                {
+                    "include": "#functions"
+                },
+                {
+                    "include": "#module-functions"
+                },
+                {
+                    "include": "#array-literals"
+                }
+            ]
+        }
+    }
+}

@@ -9,7 +9,6 @@ import {
 let client: LanguageClient;
 
 export function activate() {
-    // Path to the compiled psy-lsp binary
     const serverPath = path.join(
         __dirname,
         "..",
@@ -20,12 +19,30 @@ export function activate() {
     );
 
     const serverOptions: ServerOptions = {
-        run: { command: serverPath, transport: TransportKind.stdio },
-        debug: { command: serverPath, transport: TransportKind.stdio },
+        run: {
+            command: serverPath,
+            transport: TransportKind.stdio,
+            args: []
+        },
+        debug: {
+            command: serverPath,
+            transport: TransportKind.stdio,
+            args: ["--debug"]
+        },
     };
 
     const clientOptions: LanguageClientOptions = {
-        documentSelector: [{ scheme: "file", language: "psy" }],
+        documentSelector: [
+            { scheme: "file", language: "psy" }
+        ],
+        synchronize: {
+            fileEvents: []
+        },
+        // Initialize options 
+        initializationOptions: {
+            hoverEnabled: true,
+            diagnosticsEnabled: true
+        }
     };
 
     client = new LanguageClient(
