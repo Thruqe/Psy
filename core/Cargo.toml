@@ -11,3 +11,4 @@ psy-types = { path = "../types" }
 psy-math = { path = "../modules/math" }
 psy-fs = { path = "../modules/fs" }
 psy-time = { path = "../modules/time" }
+psy-crypto = { path = "../modules/crypto" }

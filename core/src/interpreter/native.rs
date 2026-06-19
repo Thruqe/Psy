@@ -63,6 +63,7 @@ pub fn get_module(module_name: &str) -> Option<NativeModule> {
         "_MATH" => Some(math_module()),
         "_FS" => Some(fs_module()),
         "_TIME" => Some(time_module()),
+        "_CRYPTO" => Some(crypto_module()),
         _ => None,
     }
 }
@@ -421,6 +422,102 @@ fn time_module() -> NativeModule {
         NativeFunctionInfo {
             func: psy_time::format_time,
             arity: Arity::Exact(1),
+        },
+    );
+
+    NativeModule {
+        functions,
+        constants: HashMap::new(),
+    }
+}
+
+fn crypto_module() -> NativeModule {
+    let mut functions: HashMap<&'static str, NativeFunctionInfo> = HashMap::new();
+
+    functions.insert(
+        "ENCRYPT",
+        NativeFunctionInfo {
+            func: psy_crypto::encrypt,
+            arity: Arity::Exact(2),
+        },
+    );
+    functions.insert(
+        "DECRYPT",
+        NativeFunctionInfo {
+            func: psy_crypto::decrypt,
+            arity: Arity::Exact(2),
+        },
+    );
+    functions.insert(
+        "HASH",
+        NativeFunctionInfo {
+            func: psy_crypto::hash,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "BASE64_ENCODE",
+        NativeFunctionInfo {
+            func: psy_crypto::base64_encode,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "BASE64_DECODE",
+        NativeFunctionInfo {
+            func: psy_crypto::base64_decode,
+            arity: Arity::Exact(1),
+        },
+    );
+    functions.insert(
+        "HMAC_GENERATE",
+        NativeFunctionInfo {
+            func: psy_crypto::hmac_generate,
+            arity: Arity::Exact(2),
+        },
+    );
+    functions.insert(
+        "HMAC_VERIFY",
+        NativeFunctionInfo {
+            func: psy_crypto::hmac_verify,
+            arity: Arity::Exact(3),
+        },
+    );
+
+    functions.insert(
+        "AES_ENCRYPT",
+        NativeFunctionInfo {
+            func: psy_crypto::aes_encrypt,
+            arity: Arity::Exact(3),
+        },
+    );
+    functions.insert(
+        "AES_DECRYPT",
+        NativeFunctionInfo {
+            func: psy_crypto::aes_decrypt,
+            arity: Arity::Exact(3),
+        },
+    );
+
+    functions.insert(
+        "RSA_GENERATE_KEY",
+        NativeFunctionInfo {
+            func: psy_crypto::rsa_generate_key,
+            arity: Arity::Exact(0),
+        },
+    );
+    functions.insert(
+        "RSA_ENCRYPT",
+        NativeFunctionInfo {
+            func: psy_crypto::rsa_encrypt,
+            arity: Arity::Exact(2),
+        },
+    );
+    functions.insert(
+        "RSA_DECRYPT",
+        NativeFunctionInfo {
+            func: psy_crypto::rsa_decrypt,
+            arity: Arity::Exact(2),
         },
     );
 

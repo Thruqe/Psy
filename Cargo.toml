@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["core", "cli", "checker", "lsp", "types", "modules/math", "modules/fs", "modules/time"]
+members = ["core", "cli", "checker", "lsp", "types", "modules/math", "modules/fs", "modules/time", "modules/crypto"]
 
 [workspace.package]
 version = "0.1.0"
