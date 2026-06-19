@@ -195,12 +195,22 @@ impl Lexer {
                     });
                 }
                 '-' => {
-                    self.advance_char();
-                    tokens.push(PositionedToken {
-                        token: Token::Minus,
-                        line,
-                        column,
-                    });
+                    if self.peek() == Some('>') {
+                        self.advance_char();
+                        self.advance_char();
+                        tokens.push(PositionedToken {
+                            token: Token::Arrow,
+                            line,
+                            column,
+                        });
+                    } else {
+                        self.advance_char();
+                        tokens.push(PositionedToken {
+                            token: Token::Minus,
+                            line,
+                            column,
+                        });
+                    }
                 }
                 '*' => {
                     self.advance_char();

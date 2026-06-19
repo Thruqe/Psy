@@ -5,7 +5,7 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
-use psycore::parser::ast::{Expression, OutputValue, Spanned, Statement};
+use psycore::parser::ast::{Expression, Operator, OutputValue, Spanned, Statement, UnaryOperator};
 use syntax::symbols::Symbol;
 
 struct StaticSymbol {
@@ -14,13 +14,13 @@ struct StaticSymbol {
     example: &'static str,
 }
 
-/// Dynamic type inferred from tracking expressions in structural context
 #[derive(Debug, Clone, PartialEq)]
 enum InferredType {
     Number,
     String,
     Boolean,
     Array,
+    Void,
     Unknown,
 }
 
@@ -31,17 +31,30 @@ impl InferredType {
             InferredType::String => "String",
             InferredType::Boolean => "Boolean",
             InferredType::Array => "Array",
+            InferredType::Void => "Void",
             InferredType::Unknown => "Unknown",
+        }
+    }
+
+    fn from_str(s: &str) -> Self {
+        match s {
+            "Number" => InferredType::Number,
+            "String" => InferredType::String,
+            "Boolean" => InferredType::Boolean,
+            "Array" => InferredType::Array,
+            "Void" => InferredType::Void,
+            _ => InferredType::Unknown,
         }
     }
 }
 
-/// Tracks complete lexical variable metadata, block contexts, and signatures.
 struct SemanticContext {
     variable_types: HashMap<String, InferredType>,
     function_returns: HashMap<String, InferredType>,
+    function_params: HashMap<String, Vec<(String, InferredType)>>,
     imported_modules: HashSet<String>,
     used_names: HashSet<String>,
+    diagnostics: Vec<Diagnostic>,
 }
 
 #[derive(Default)]
@@ -51,7 +64,6 @@ struct DocumentState {
     variable_types: HashMap<String, InferredType>,
     function_returns: HashMap<String, InferredType>,
     imported_modules: HashSet<String>,
-    used_names: HashSet<String>,
 }
 
 pub struct Backend {
@@ -59,7 +71,6 @@ pub struct Backend {
     documents: Arc<Mutex<HashMap<Url, DocumentState>>>,
 }
 
-// Inlined core documentation mappings replacing external JSON dependencies
 const KEYWORDS: &[(&str, StaticSymbol)] = &[
     (
         "START",
@@ -162,7 +173,7 @@ const KEYWORDS: &[(&str, StaticSymbol)] = &[
         StaticSymbol {
             description: "Declares modular local executable routines",
             detail: "Encapsulates execution context blocks using clear argument bounds identifiers.",
-            example: "FUNCTION calc(a, b)\n    RETURN a + b\nENDFUNCTION",
+            example: "FUNCTION calc(a Number, b Number) -> Number\n    RETURN a + b\nENDFUNCTION",
         },
     ),
     (
@@ -234,7 +245,7 @@ const KEYWORDS: &[(&str, StaticSymbol)] = &[
         StaticSymbol {
             description: "Pulls targeted functionality systems into global environments",
             detail: "Links internal frameworks to native math, filesystem, or cryptographic modules.",
-            example: "IMPORT _MATH [_SIN, _COS]",
+            example: "IMPORT _MATH[SIN, COS]",
         },
     ),
 ];
@@ -252,6 +263,7 @@ impl LanguageServer for Backend {
                     trigger_characters: Some(vec!["_".to_string(), "(".to_string()]),
                     ..Default::default()
                 }),
+                document_formatting_provider: Some(OneOf::Left(true)),
                 ..Default::default()
             },
             server_info: Some(ServerInfo {
@@ -295,6 +307,39 @@ impl LanguageServer for Backend {
             .await;
     }
 
+    async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
+        let uri = params.text_document.uri;
+        let docs = self.documents.lock().await;
+        let doc_state = match docs.get(&uri) {
+            Some(doc) => doc,
+            None => return Ok(None),
+        };
+
+        let mut formatter = psycore::formatter::Formatter::new();
+        match formatter.format(&doc_state.content) {
+            Ok(formatted_text) => {
+                let lines: Vec<&str> = doc_state.content.lines().collect();
+                let last_line = lines.len().saturating_sub(1) as u32;
+                let last_char = lines.last().map(|l| l.len()).unwrap_or(0) as u32;
+
+                Ok(Some(vec![TextEdit {
+                    range: Range {
+                        start: Position {
+                            line: 0,
+                            character: 0,
+                        },
+                        end: Position {
+                            line: last_line,
+                            character: last_char,
+                        },
+                    },
+                    new_text: formatted_text,
+                }]))
+            }
+            Err(_) => Ok(None),
+        }
+    }
+
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
         let position = params.text_document_position_params.position;
         let uri = params.text_document_position_params.text_document.uri;
@@ -311,7 +356,6 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
-        // 1. Check user-defined items with inferred types attached
         if let Some(symbol) = doc_state.symbols.iter().find(|s| s.name == word) {
             let hover_text = match &symbol.kind {
                 syntax::symbols::SymbolKind::Function { parameters } => {
@@ -351,7 +395,6 @@ impl LanguageServer for Backend {
             }));
         }
 
-        // 2. Check Static Language Keywords
         let upper_word = word.to_uppercase();
         if let Some((_, info)) = KEYWORDS.iter().find(|(k, _)| *k == upper_word) {
             let content = format!(
@@ -367,7 +410,6 @@ impl LanguageServer for Backend {
             }));
         }
 
-        // 3. Check Native Structural Modules and Native Functions directly
         if let Some(module) = psycore::interpreter::native::get_module(&upper_word) {
             let mut functions_list = String::new();
             for f_name in module.functions.keys() {
@@ -386,7 +428,6 @@ impl LanguageServer for Backend {
             }));
         }
 
-        // Scan inside system modules for functions matching invocation calls
         for m_name in &["_MATH", "_FS", "_TIME", "_CRYPTO"] {
             if let Some(module) = psycore::interpreter::native::get_module(m_name) {
                 if module.functions.contains_key(upper_word.as_str()) {
@@ -431,7 +472,6 @@ impl LanguageServer for Backend {
 
         let mut items = Vec::new();
 
-        // Standard Keyword Completions
         for (kw, info) in KEYWORDS {
             items.push(CompletionItem {
                 label: kw.to_string(),
@@ -445,7 +485,6 @@ impl LanguageServer for Backend {
             });
         }
 
-        // Built-in Module Suggestions
         for m_name in &["_MATH", "_FS", "_TIME", "_CRYPTO"] {
             items.push(CompletionItem {
                 label: m_name.to_string(),
@@ -454,10 +493,12 @@ impl LanguageServer for Backend {
                 ..Default::default()
             });
 
-            // Automatically augment suggestions if module imports are verified active in tree state
             if doc_state.imported_modules.contains(*m_name) {
                 if let Some(mod_reg) = psycore::interpreter::native::get_module(m_name) {
                     for f_name in mod_reg.functions.keys() {
+                        if doc_state.variable_types.contains_key(&f_name[..]) {
+                            continue;
+                        }
                         items.push(CompletionItem {
                             label: f_name.to_string(),
                             kind: Some(CompletionItemKind::FUNCTION),
@@ -480,7 +521,6 @@ impl LanguageServer for Backend {
             }
         }
 
-        // Local Document Symbols
         for symbol in &doc_state.symbols {
             let kind = match &symbol.kind {
                 syntax::symbols::SymbolKind::Function { .. } => CompletionItemKind::FUNCTION,
@@ -503,30 +543,45 @@ impl LanguageServer for Backend {
 
 impl Backend {
     async fn parse_and_publish(&self, uri: &Url, source: &str) {
-        let (ast, mut diagnostics) = syntax::parse_ast(source);
+        let (ast, diagnostics) = syntax::parse_ast(source);
         let symbols = syntax::symbols(source);
 
         let mut ctx = SemanticContext {
             variable_types: HashMap::new(),
             function_returns: HashMap::new(),
+            function_params: HashMap::new(),
             imported_modules: HashSet::new(),
             used_names: HashSet::new(),
+            diagnostics: Vec::new(),
         };
 
-        // Recursively visit every single AST statement and nested structural expression tree
         walk_statements(&ast, &mut ctx);
 
         let mut lsp_diagnostics: Vec<Diagnostic> =
             diagnostics.iter().map(|d| convert_diagnostic(d)).collect();
 
-        // Produce standard diagnostic highlights for unused imports cleanly
+        lsp_diagnostics.extend(ctx.diagnostics);
+
+        let source_lines: Vec<&str> = source.lines().collect();
+
         for symbol in &symbols {
             if let syntax::symbols::SymbolKind::Import { module } = &symbol.kind {
-                if !ctx.used_names.contains(&symbol.name) {
+                let symbol_upper = symbol.name.to_uppercase();
+                if !ctx.used_names.contains(&symbol.name) && !ctx.used_names.contains(&symbol_upper)
+                {
+                    let start_line = symbol.line.saturating_sub(1) as u32;
+                    let mut start_col = symbol.column.saturating_sub(1) as u32;
+
+                    if let Some(line_text) = source_lines.get(start_line as usize) {
+                        if let Some(byte_offset) = line_text.find(&symbol.name) {
+                            start_col = byte_offset as u32;
+                        }
+                    }
+
                     lsp_diagnostics.push(Diagnostic {
                         range: Range {
-                            start: Position { line: symbol.line.saturating_sub(1) as u32, character: symbol.column.saturating_sub(1) as u32 },
-                            end: Position { line: symbol.line.saturating_sub(1) as u32, character: (symbol.column.saturating_sub(1) + symbol.name.len()) as u32 },
+                            start: Position { line: start_line, character: start_col },
+                            end: Position { line: start_line, character: start_col + symbol.name.len() as u32 },
                         },
                         severity: Some(DiagnosticSeverity::WARNING),
                         source: Some("psy-analysis".to_string()),
@@ -548,7 +603,6 @@ impl Backend {
                     variable_types: ctx.variable_types,
                     function_returns: ctx.function_returns,
                     imported_modules: ctx.imported_modules,
-                    used_names: ctx.used_names,
                 },
             );
         }
@@ -559,57 +613,163 @@ impl Backend {
     }
 }
 
+fn collect_return_types(
+    statements: &[Spanned<Statement>],
+    ctx: &SemanticContext,
+    types: &mut Vec<InferredType>,
+) {
+    for spanned in statements {
+        match &spanned.node {
+            Statement::Return { value: Some(expr) } => {
+                types.push(infer_expression_type(&expr.node, ctx));
+            }
+            Statement::Return { value: None } => {
+                types.push(InferredType::Void);
+            }
+            Statement::If {
+                then_branch,
+                else_if_branches,
+                else_branch,
+                ..
+            } => {
+                collect_return_types(then_branch, ctx, types);
+                for (_, branch) in else_if_branches {
+                    collect_return_types(branch, ctx, types);
+                }
+                collect_return_types(else_branch, ctx, types);
+            }
+            Statement::ForLoop { body, .. } => {
+                collect_return_types(body, ctx, types);
+            }
+            Statement::WhileLoop { body, .. } => {
+                collect_return_types(body, ctx, types);
+            }
+            Statement::Public(inner) => {
+                collect_return_types(&[*inner.clone()], ctx, types);
+            }
+            _ => {}
+        }
+    }
+}
+
 fn walk_statements(statements: &[Spanned<Statement>], ctx: &mut SemanticContext) {
     for spanned in statements {
         match &spanned.node {
             Statement::Import { modules } => {
                 for m in modules {
                     ctx.imported_modules.insert(m.name.clone());
+                    let upper_mod = m.name.to_uppercase();
+                    let native_module = psycore::interpreter::native::get_module(&upper_mod);
+
                     if let Some(funcs) = &m.functions {
-                        // Gather function references explicitly tracking imports
                         for f in funcs {
                             ctx.variable_types.insert(f.clone(), InferredType::Unknown);
+                            ctx.variable_types
+                                .insert(f.to_uppercase(), InferredType::Unknown);
+
+                            if let Some(ref mod_reg) = native_module {
+                                if !mod_reg.functions.contains_key(f.as_str())
+                                    && !mod_reg.functions.contains_key(f.to_uppercase().as_str())
+                                {
+                                    ctx.diagnostics.push(Diagnostic {
+                                        range: Range {
+                                            start: Position { line: spanned.line.saturating_sub(1) as u32, character: spanned.column.saturating_sub(1) as u32 },
+                                            end: Position { line: spanned.line.saturating_sub(1) as u32, character: (spanned.column.saturating_sub(1) + 6) as u32 },
+                                        },
+                                        severity: Some(DiagnosticSeverity::ERROR),
+                                        source: Some("psy-analysis".to_string()),
+                                        message: format!("Signature Error: Binding '{}' does not exist inside core system module '{}'.", f, m.name),
+                                        ..Default::default()
+                                    });
+                                }
+                            }
                         }
                     }
                 }
             }
             Statement::Assign {
-                variable,
+                variables,
                 expression,
             } => {
-                let expr_type = infer_expression_type(&expression.node);
-                ctx.variable_types.insert(variable.clone(), expr_type);
+                let expr_type = infer_expression_type(&expression.node, ctx);
+                for var in variables {
+                    ctx.variable_types.insert(var.clone(), expr_type.clone());
+                }
                 walk_expression(&expression.node, ctx);
             }
             Statement::ConstDeclaration { name, expression } => {
-                let expr_type = infer_expression_type(&expression.node);
+                let expr_type = infer_expression_type(&expression.node, ctx);
                 ctx.variable_types.insert(name.clone(), expr_type);
                 walk_expression(&expression.node, ctx);
             }
             Statement::StaticDeclaration { name, expression } => {
-                let expr_type = infer_expression_type(&expression.node);
+                let expr_type = infer_expression_type(&expression.node, ctx);
                 ctx.variable_types.insert(name.clone(), expr_type);
                 walk_expression(&expression.node, ctx);
+            }
+            Statement::DeclareArray { name, .. } => {
+                ctx.variable_types.insert(name.clone(), InferredType::Array);
             }
             Statement::FunctionDeclaration {
                 name,
                 parameters,
+                return_type,
                 body,
             } => {
+                let mut param_mappings = Vec::new();
                 for param in parameters {
+                    let p_type = match &param.data_type {
+                        Some(t) => InferredType::from_str(t),
+                        None => InferredType::Unknown,
+                    };
                     ctx.variable_types
-                        .insert(param.clone(), InferredType::Unknown);
+                        .insert(param.name.clone(), p_type.clone());
+                    param_mappings.push((param.name.clone(), p_type));
                 }
+                ctx.function_params.insert(name.clone(), param_mappings);
 
-                // Track deep returns inside routine container blocks to isolate function return types structural models
-                let mut routine_returns = InferredType::Unknown;
-                for stmt in body {
-                    if let Statement::Return { value: Some(expr) } = &stmt.node {
-                        routine_returns = infer_expression_type(&expr.node);
+                let final_return = match return_type {
+                    Some(t) => InferredType::from_str(t),
+                    None => {
+                        let mut collected_types = Vec::new();
+                        collect_return_types(body, ctx, &mut collected_types);
+                        collected_types.retain(|t| *t != InferredType::Unknown);
+                        if collected_types.is_empty() {
+                            InferredType::Void
+                        } else {
+                            let first = collected_types[0].clone();
+                            if collected_types.iter().all(|t| *t == first) {
+                                first
+                            } else {
+                                InferredType::Unknown
+                            }
+                        }
+                    }
+                };
+
+                ctx.function_returns
+                    .insert(name.clone(), final_return.clone());
+                walk_statements(body, ctx);
+
+                if let Some(t_str) = return_type {
+                    let expected = InferredType::from_str(t_str);
+                    let mut collected_types = Vec::new();
+                    collect_return_types(body, ctx, &mut collected_types);
+                    for found in collected_types {
+                        if found != InferredType::Unknown && found != expected {
+                            ctx.diagnostics.push(Diagnostic {
+                                range: Range {
+                                    start: Position { line: spanned.line.saturating_sub(1) as u32, character: spanned.column.saturating_sub(1) as u32 },
+                                    end: Position { line: spanned.line.saturating_sub(1) as u32, character: (spanned.column.saturating_sub(1) + name.len()) as u32 },
+                                },
+                                severity: Some(DiagnosticSeverity::ERROR),
+                                source: Some("psy-typecheck".to_string()),
+                                message: format!("Function '{}' declares return constraint '{}' but breaks contract by returning type '{}'.", name, t_str, found.to_str()),
+                                ..Default::default()
+                            });
+                        }
                     }
                 }
-                ctx.function_returns.insert(name.clone(), routine_returns);
-                walk_statements(body, ctx);
             }
             Statement::If {
                 condition,
@@ -655,7 +815,7 @@ fn walk_statements(statements: &[Spanned<Statement>], ctx: &mut SemanticContext)
                 }
             }
             Statement::ArrayAssign { name, index, value } => {
-                ctx.used_names.insert(name.clone());
+                ctx.variable_types.insert(name.clone(), InferredType::Array);
                 walk_expression(&index.node, ctx);
                 walk_expression(&value.node, ctx);
             }
@@ -669,55 +829,268 @@ fn walk_statements(statements: &[Spanned<Statement>], ctx: &mut SemanticContext)
 
 fn walk_expression(expr: &Expression, ctx: &mut SemanticContext) {
     match expr {
+        Expression::Number(_)
+        | Expression::String(_)
+        | Expression::Boolean(_)
+        | Expression::ArrayLiteral(_) => {}
         Expression::Identifier(name) => {
             ctx.used_names.insert(name.clone());
+            ctx.used_names.insert(name.to_uppercase());
         }
         Expression::FunctionCall { name, arguments } => {
             ctx.used_names.insert(name.clone());
+            ctx.used_names.insert(name.to_uppercase());
             for arg in arguments {
                 walk_expression(&arg.node, ctx);
             }
+
+            if let Some(expected_params) = ctx.function_params.get(name).cloned() {
+                if arguments.len() != expected_params.len() {
+                    ctx.diagnostics.push(Diagnostic {
+                        range: Range {
+                            start: Position {
+                                line: 0,
+                                character: 0,
+                            },
+                            end: Position {
+                                line: 0,
+                                character: 0,
+                            },
+                        },
+                        severity: Some(DiagnosticSeverity::ERROR),
+                        source: Some("psy-typecheck".to_string()),
+                        message: format!(
+                            "Routines call '{}' requires exactly {} inputs, but received {}.",
+                            name,
+                            expected_params.len(),
+                            arguments.len()
+                        ),
+                        ..Default::default()
+                    });
+                } else {
+                    for (i, arg) in arguments.iter().enumerate() {
+                        let arg_type = infer_expression_type(&arg.node, ctx);
+                        let (_, param_type) = &expected_params[i];
+                        if *param_type != InferredType::Unknown
+                            && arg_type != InferredType::Unknown
+                            && arg_type != *param_type
+                        {
+                            ctx.diagnostics.push(Diagnostic {
+                                range: Range {
+                                    start: Position { line: arg.line.saturating_sub(1) as u32, character: arg.column.saturating_sub(1) as u32 },
+                                    end: Position { line: arg.line.saturating_sub(1) as u32, character: (arg.column.saturating_sub(1) + 1) as u32 },
+                                },
+                                severity: Some(DiagnosticSeverity::ERROR),
+                                source: Some("psy-typecheck".to_string()),
+                                message: format!("Argument position {} expected type '{}' but instead evaluated to '{}'.", i + 1, param_type.to_str(), arg_type.to_str()),
+                                ..Default::default()
+                            });
+                        }
+                    }
+                }
+            }
         }
-        Expression::BinaryOp { left, right, .. } => {
+        Expression::BinaryOp {
+            left,
+            operator,
+            right,
+        } => {
             walk_expression(&left.node, ctx);
             walk_expression(&right.node, ctx);
+
+            let left_type = infer_expression_type(&left.node, ctx);
+            let right_type = infer_expression_type(&right.node, ctx);
+
+            if left_type != InferredType::Unknown
+                && right_type != InferredType::Unknown
+                && left_type != right_type
+            {
+                let op_str = match operator {
+                    Operator::Add => "+",
+                    Operator::Subtract => "-",
+                    Operator::Multiply => "*",
+                    Operator::Divide => "/",
+                    Operator::Modulo => "%",
+                    Operator::Power => "^",
+                    Operator::Equal => "==",
+                    Operator::NotEqual => "!=",
+                    Operator::LessThan => "<",
+                    Operator::GreaterThan => ">",
+                    Operator::LessEqual => "<=",
+                    Operator::GreaterEqual => ">=",
+                    Operator::And => "AND",
+                    Operator::Or => "OR",
+                };
+
+                ctx.diagnostics.push(Diagnostic {
+                    range: Range {
+                        start: Position { line: left.line.saturating_sub(1) as u32, character: left.column.saturating_sub(1) as u32 },
+                        end: Position { line: right.line.saturating_sub(1) as u32, character: (right.column.saturating_sub(1) + 1) as u32 },
+                    },
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    source: Some("psy-typecheck".to_string()),
+                    message: format!("Type mismatch: Cannot compare or operate '{}' and '{}' using the '{}' operator.", left_type.to_str(), right_type.to_str(), op_str),
+                    ..Default::default()
+                });
+            }
         }
-        Expression::UnaryOp { expr, .. } => {
-            walk_expression(&expr.node, ctx);
+        Expression::UnaryOp {
+            operator: _,
+            expr: _expr,
+        } => {
+            walk_expression(&_expr.node, ctx);
         }
         Expression::ArrayAccess { name, index } => {
             ctx.used_names.insert(name.clone());
+            ctx.used_names.insert(name.to_uppercase());
             walk_expression(&index.node, ctx);
-        }
-        Expression::ArrayLiteral(elements) => {
-            for el in elements {
-                walk_expression(&el.node, ctx);
+
+            let index_type = infer_expression_type(&index.node, ctx);
+            if index_type != InferredType::Unknown && index_type != InferredType::Number {
+                ctx.diagnostics.push(Diagnostic {
+                    range: Range {
+                        start: Position {
+                            line: index.line.saturating_sub(1) as u32,
+                            character: index.column.saturating_sub(1) as u32,
+                        },
+                        end: Position {
+                            line: index.line.saturating_sub(1) as u32,
+                            character: (index.column.saturating_sub(1) + 1) as u32,
+                        },
+                    },
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    source: Some("psy-typecheck".to_string()),
+                    message: format!(
+                        "Array index must evaluate to a Number, but found '{}'.",
+                        index_type.to_str()
+                    ),
+                    ..Default::default()
+                });
             }
         }
-        _ => {}
     }
 }
 
-fn infer_expression_type(expr: &Expression) -> InferredType {
+fn infer_expression_type(expr: &Expression, ctx: &SemanticContext) -> InferredType {
     match expr {
         Expression::Number(_) => InferredType::Number,
         Expression::String(_) => InferredType::String,
         Expression::Boolean(_) => InferredType::Boolean,
         Expression::ArrayLiteral(_) => InferredType::Array,
-        Expression::BinaryOp { left, operator, .. } => match operator {
-            psycore::parser::ast::Operator::Add
-            | psycore::parser::ast::Operator::Subtract
-            | psycore::parser::ast::Operator::Multiply
-            | psycore::parser::ast::Operator::Divide
-            | psycore::parser::ast::Operator::Modulo
-            | psycore::parser::ast::Operator::Power => InferredType::Number,
+        Expression::Identifier(name) => ctx
+            .variable_types
+            .get(name)
+            .cloned()
+            .unwrap_or(InferredType::Unknown),
+        Expression::ArrayAccess { .. } => InferredType::Number,
+        Expression::FunctionCall { name, .. } => {
+            let upper = name.to_uppercase();
+            if upper == "IS_PRIME"
+                || upper == "EXISTS"
+                || upper == "ISFILE"
+                || upper == "ISDIR"
+                || upper == "DELETE"
+                || upper == "HMAC_VERIFY"
+            {
+                return InferredType::Boolean;
+            }
+            if upper == "READFILE"
+                || upper == "FORMATTIME"
+                || upper == "ENCRYPT"
+                || upper == "DECRYPT"
+                || upper == "HASH"
+                || upper == "BASE64_ENCODE"
+                || upper == "BASE64_DECODE"
+                || upper == "HMAC_GENERATE"
+                || upper == "AES_ENCRYPT"
+                || upper == "AES_DECRYPT"
+                || upper == "RSA_GENERATE_KEY"
+                || upper == "RSA_ENCRYPT"
+                || upper == "RSA_DECRYPT"
+            {
+                return InferredType::String;
+            }
+            if upper == "LISTDIR"
+                || upper == "MATRIX_ADD"
+                || upper == "MATRIX_MULTIPLY"
+                || upper == "MATRIX_TRANSPOSE"
+                || upper == "MATRIX_INVERSE"
+                || upper == "CROSS"
+            {
+                return InferredType::Array;
+            }
+            if [
+                "SIN",
+                "COS",
+                "TAN",
+                "SQRT",
+                "POW",
+                "ABS",
+                "ROUND",
+                "FLOOR",
+                "CEIL",
+                "MEAN",
+                "MEDIAN",
+                "MODE",
+                "VARIANCE",
+                "STDDEV",
+                "MIN",
+                "MAX",
+                "SUM",
+                "PRODUCT",
+                "GCD",
+                "LCM",
+                "ASIN",
+                "ACOS",
+                "ATAN",
+                "LOG",
+                "LOG10",
+                "EXP",
+                "FACTORIAL",
+                "NOW",
+                "NOWMS",
+                "MATRIX_DETERMINANT",
+                "DOT",
+            ]
+            .contains(&upper.as_str())
+            {
+                return InferredType::Number;
+            }
+            ctx.function_returns
+                .get(name)
+                .cloned()
+                .unwrap_or(InferredType::Unknown)
+        }
+        Expression::BinaryOp {
+            left,
+            operator,
+            right,
+        } => match operator {
+            Operator::Add => {
+                let left_t = infer_expression_type(&left.node, ctx);
+                let right_t = infer_expression_type(&right.node, ctx);
+                if left_t == InferredType::String || right_t == InferredType::String {
+                    InferredType::String
+                } else if left_t == InferredType::Number && right_t == InferredType::Number {
+                    InferredType::Number
+                } else {
+                    InferredType::Unknown
+                }
+            }
+            Operator::Subtract
+            | Operator::Multiply
+            | Operator::Divide
+            | Operator::Modulo
+            | Operator::Power => InferredType::Number,
             _ => InferredType::Boolean,
         },
-        Expression::UnaryOp { operator, .. } => match operator {
-            psycore::parser::ast::UnaryOperator::Negate => InferredType::Number,
-            psycore::parser::ast::UnaryOperator::Not => InferredType::Boolean,
+        Expression::UnaryOp {
+            operator,
+            expr: _expr,
+        } => match operator {
+            UnaryOperator::Negate => InferredType::Number,
+            UnaryOperator::Not => InferredType::Boolean,
         },
-        _ => InferredType::Unknown,
     }
 }
 

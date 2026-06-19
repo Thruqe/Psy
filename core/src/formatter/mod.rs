@@ -86,11 +86,12 @@ impl Formatter {
                     .map_err(|e| e.to_string())?;
             }
             Statement::Assign {
-                variable,
+                variables,
                 expression,
             } => {
                 let expr_str = self.format_expression(expression)?;
-                writeln!(self.output, "{}{} = {}", indent, variable, expr_str)
+                let vars_str = variables.join(", ");
+                writeln!(self.output, "{}{} = {}", indent, vars_str, expr_str)
                     .map_err(|e| e.to_string())?;
             }
             Statement::Input { variables } => {
@@ -205,11 +206,27 @@ impl Formatter {
             Statement::FunctionDeclaration {
                 name,
                 parameters,
+                return_type,
                 body,
             } => {
-                let params = parameters.join(", ");
-                writeln!(self.output, "{}FUNCTION {}({})", indent, name, params)
-                    .map_err(|e| e.to_string())?;
+                let params: Vec<String> = parameters
+                    .iter()
+                    .map(|p| match &p.data_type {
+                        Some(t) => format!("{} {}", p.name, t),
+                        None => p.name.clone(),
+                    })
+                    .collect();
+                let params_str = params.join(", ");
+                let arrow_str = match return_type {
+                    Some(t) => format!(" -> {}", t),
+                    None => String::new(),
+                };
+                writeln!(
+                    self.output,
+                    "{}FUNCTION {}({}){}",
+                    indent, name, params_str, arrow_str
+                )
+                .map_err(|e| e.to_string())?;
 
                 self.indent_level += 1;
                 for stmt in body {

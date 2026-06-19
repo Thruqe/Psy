@@ -1,7 +1,8 @@
 pub mod ast;
 
 use self::ast::{
-    Expression, ModuleImport, Operator, OutputValue, Spanned, Statement, UnaryOperator,
+    Expression, FunctionParam, ModuleImport, Operator, OutputValue, Spanned, Statement,
+    UnaryOperator,
 };
 use crate::lexer::{PositionedToken, Token};
 
@@ -196,12 +197,14 @@ impl Parser {
             self.parse_static_declaration()
         } else if self.check(Token::Pub) {
             self.parse_public_declaration()
-        } else if self.peek_is_identifier() && self.peek_next_is_assign() {
-            self.parse_assign()
-        } else if self.peek_is_array_access() {
-            self.parse_array_assign()
-        } else if self.peek_is_call() {
-            self.parse_expression_statement()
+        } else if self.peek_is_identifier() {
+            if self.peek_is_array_access() {
+                self.parse_array_assign()
+            } else if self.peek_is_assignment() {
+                self.parse_assign()
+            } else {
+                self.parse_expression_statement()
+            }
         } else {
             let (line, column) = self.current_pos();
             let token = self.current();
@@ -266,15 +269,28 @@ impl Parser {
 
     fn parse_assign(&mut self) -> Result<Spanned<Statement>, ParseError> {
         let (line, column) = self.current_pos();
-        let var_name = if let Token::Identifier(name) = self.current() {
-            name.clone()
+
+        let mut variables = Vec::new();
+        if let Token::Identifier(name) = self.current() {
+            variables.push(name.clone());
+            self.advance();
         } else {
-            return Err(self.error_at_current("Expected identifier"));
-        };
+            return Err(self.error_at_current("Expected identifier starting assignment"));
+        }
 
-        self.advance();
+        while self.check(Token::Comma) {
+            self.advance();
+            if let Token::Identifier(name) = self.current() {
+                variables.push(name.clone());
+                self.advance();
+            } else {
+                return Err(
+                    self.error_at_current("Expected identifier after comma in multi-assignment")
+                );
+            }
+        }
+
         self.skip_newlines();
-
         if !self.check(Token::Assign) {
             return Err(self.error_at_current("Expected = for assignment"));
         }
@@ -286,7 +302,7 @@ impl Parser {
         self.skip_newlines();
         Ok(Spanned::new(
             Statement::Assign {
-                variable: var_name,
+                variables,
                 expression: expr,
             },
             line,
@@ -526,9 +542,19 @@ impl Parser {
         let mut parameters = Vec::new();
         if !self.check(Token::RightParen) {
             loop {
-                if let Token::Identifier(param) = self.current() {
-                    parameters.push(param.clone());
+                if let Token::Identifier(param_name) = self.current() {
                     self.advance();
+
+                    let mut data_type = None;
+                    if let Token::Identifier(type_ident) = self.current() {
+                        data_type = Some(type_ident.clone());
+                        self.advance();
+                    }
+
+                    parameters.push(FunctionParam {
+                        name: param_name,
+                        data_type,
+                    });
                 } else {
                     return Err(self.error_at_current("Expected parameter name"));
                 }
@@ -545,8 +571,19 @@ impl Parser {
             return Err(self.error_at_current("Expected , or ) in parameter list"));
         }
         self.advance(); // Consume )
-        self.skip_newlines();
 
+        let mut return_type = None;
+        if self.check(Token::Arrow) {
+            self.advance();
+            if let Token::Identifier(ret_ident) = self.current() {
+                return_type = Some(ret_ident.clone());
+                self.advance();
+            } else {
+                return Err(self.error_at_current("Expected return type identifier after ->"));
+            }
+        }
+
+        self.skip_newlines();
         let body = self.parse_block_statements(&[Token::EndFunction]);
 
         if !self.check(Token::EndFunction) {
@@ -559,6 +596,7 @@ impl Parser {
             Statement::FunctionDeclaration {
                 name,
                 parameters,
+                return_type,
                 body,
             },
             line,
@@ -1040,27 +1078,22 @@ impl Parser {
         matches!(self.current(), Token::Identifier(_))
     }
 
-    fn peek_next_is_assign(&self) -> bool {
-        if self.position + 1 < self.tokens.len() {
-            self.tokens[self.position + 1].token == Token::Assign
-        } else {
-            false
+    fn peek_is_assignment(&self) -> bool {
+        let mut i = self.position;
+        while i < self.tokens.len() {
+            match &self.tokens[i].token {
+                Token::Newline | Token::EOF => break,
+                Token::Assign => return true,
+                _ => i += 1,
+            }
         }
+        false
     }
 
     fn peek_is_array_access(&self) -> bool {
         if self.position + 1 < self.tokens.len() {
             if let Token::Identifier(_) = self.current() {
                 return self.tokens[self.position + 1].token == Token::LeftBracket;
-            }
-        }
-        false
-    }
-
-    fn peek_is_call(&self) -> bool {
-        if self.position + 1 < self.tokens.len() {
-            if let Token::Identifier(_) = self.current() {
-                return self.tokens[self.position + 1].token == Token::LeftParen;
             }
         }
         false

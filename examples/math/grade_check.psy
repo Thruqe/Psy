@@ -1,5 +1,6 @@
 START
     INPUT score
+
     IF score >= 70 THEN
         OUTPUT "Grade: A"
     ELSE

@@ -12,9 +12,15 @@ impl<T> Spanned<T> {
 }
 
 #[derive(Debug, Clone)]
+pub struct FunctionParam {
+    pub name: String,
+    pub data_type: Option<String>,
+}
+
+#[derive(Debug, Clone)]
 pub enum Statement {
     Assign {
-        variable: String,
+        variables: Vec<String>,
         expression: Spanned<Expression>,
     },
     Input {
@@ -50,7 +56,8 @@ pub enum Statement {
     },
     FunctionDeclaration {
         name: String,
-        parameters: Vec<String>,
+        parameters: Vec<FunctionParam>,
+        return_type: Option<String>,
         body: Vec<Spanned<Statement>>,
     },
     Return {

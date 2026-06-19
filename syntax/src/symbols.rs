@@ -18,9 +18,6 @@ pub struct Symbol {
     pub column: usize,
 }
 
-/// Walks the parsed statements and collects every symbol declared,
-/// including inside nested IF/FOR/WHILE blocks and function bodies,
-/// with real source positions from the Spanned AST nodes.
 pub fn collect_symbols(statements: &[Spanned<Statement>]) -> Vec<Symbol> {
     let mut symbols = Vec::new();
     walk(statements, &mut symbols);
@@ -33,16 +30,18 @@ fn walk(statements: &[Spanned<Statement>], symbols: &mut Vec<Symbol>) {
         let column = spanned.column;
 
         match unwrap_public(&spanned.node) {
-            Statement::Assign { variable, .. } => {
-                push_if_new(
-                    symbols,
-                    Symbol {
-                        name: variable.clone(),
-                        kind: SymbolKind::Variable,
-                        line,
-                        column,
-                    },
-                );
+            Statement::Assign { variables, .. } => {
+                for variable in variables {
+                    push_if_new(
+                        symbols,
+                        Symbol {
+                            name: variable.clone(),
+                            kind: SymbolKind::Variable,
+                            line,
+                            column,
+                        },
+                    );
+                }
             }
             Statement::Input { variables } => {
                 for v in variables {
@@ -94,24 +93,25 @@ fn walk(statements: &[Spanned<Statement>], symbols: &mut Vec<Symbol>) {
                 name,
                 parameters,
                 body,
+                ..
             } => {
+                let param_names: Vec<String> = parameters.iter().map(|p| p.name.clone()).collect();
                 push_if_new(
                     symbols,
                     Symbol {
                         name: name.clone(),
                         kind: SymbolKind::Function {
-                            parameters: parameters.clone(),
+                            parameters: param_names,
                         },
                         line,
                         column,
                     },
                 );
-                // Parameters are valid identifiers within the function body
                 for param in parameters {
                     push_if_new(
                         symbols,
                         Symbol {
-                            name: param.clone(),
+                            name: param.name.clone(),
                             kind: SymbolKind::Variable,
                             line,
                             column,
@@ -137,10 +137,6 @@ fn walk(statements: &[Spanned<Statement>], symbols: &mut Vec<Symbol>) {
                             );
                         }
                     }
-                    // bare IMPORT _MATH (no bracket list) is handled
-                    // separately since we'd need the native registry
-                    // to enumerate all exported names — not available
-                    // in the syntax crate today.
                 }
             }
             Statement::ForLoop { variable, body, .. } => {
@@ -175,9 +171,6 @@ fn walk(statements: &[Spanned<Statement>], symbols: &mut Vec<Symbol>) {
     }
 }
 
-/// Only pushes a symbol if no symbol with the same name already exists,
-/// since the same variable name may be assigned multiple times (e.g. in
-/// a loop) and we only want the first declaration site.
 fn push_if_new(symbols: &mut Vec<Symbol>, symbol: Symbol) {
     if !symbols.iter().any(|s| s.name == symbol.name) {
         symbols.push(symbol);

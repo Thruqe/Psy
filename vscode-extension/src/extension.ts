@@ -1,53 +1,38 @@
-import * as path from "path";
+import * as path from 'path';
+import { workspace, ExtensionContext } from 'vscode';
 import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
-    TransportKind,
-} from "vscode-languageclient/node";
+    TransportKind
+} from 'vscode-languageclient/node';
 
 let client: LanguageClient;
 
-export function activate() {
-    const serverPath = path.join(
-        __dirname,
-        "..",
-        "..",
-        "target",
-        "release",
-        "lsp"
+export function activate(context: ExtensionContext) {
+    // Looks for the binary target compiled by cargo build
+    const serverModule = context.asAbsolutePath(
+        path.join('..', 'target', 'release', 'lsp')
     );
 
     const serverOptions: ServerOptions = {
-        run: {
-            command: serverPath,
-            transport: TransportKind.stdio,
-            args: []
-        },
-        debug: {
-            command: serverPath,
-            transport: TransportKind.stdio,
-            args: ["--debug"]
-        },
+        run: { command: serverModule, transport: TransportKind.stdio },
+        debug: { command: serverModule, transport: TransportKind.stdio }
     };
 
     const clientOptions: LanguageClientOptions = {
-        documentSelector: [
-            { scheme: "file", language: "psy" }
-        ],
+        // Document selector tells VS Code to watch files with the .psy extension
+        documentSelector: [{ scheme: 'file', language: 'psy' }],
         synchronize: {
-            fileEvents: []
-        },
-        // Initialize options 
-        initializationOptions: {
-            hoverEnabled: true,
-            diagnosticsEnabled: true
+            // Synchronize configuration sections to the server context loop
+            configurationSection: 'psyServer',
+            fileEvents: workspace.createFileSystemWatcher('**/*.psy')
         }
     };
 
     client = new LanguageClient(
-        "psyLsp",
-        "Psy Language Server",
+        'psyLanguageServer',
+        'Psy Language Server',
         serverOptions,
         clientOptions
     );

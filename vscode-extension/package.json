@@ -32,6 +32,18 @@
 			}
 		]
 	},
+	"languages": [
+		{
+			"id": "psy",
+			"extensions": [
+				".psy"
+			],
+			"aliases": [
+				"Psy",
+				"psy"
+			]
+		}
+	],
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",

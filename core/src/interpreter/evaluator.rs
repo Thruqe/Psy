@@ -1,31 +1,27 @@
 use crate::interpreter::environment::{Environment, Value};
 use crate::interpreter::native::{self, get_module};
-use crate::parser::ast::{Expression, Operator, OutputValue, Spanned, Statement, UnaryOperator};
+use crate::parser::ast::{
+    Expression, FunctionParam, Operator, OutputValue, Spanned, Statement, UnaryOperator,
+};
 use std::collections::HashMap;
 use std::io::{self, Write};
 
 #[derive(Debug, Clone)]
 struct FunctionDef {
-    parameters: Vec<String>,
+    parameters: Vec<FunctionParam>,
     body: Vec<Spanned<Statement>>,
 }
 
-/// Signals whether a block finished normally or hit a RETURN that needs
-/// to propagate up through any number of enclosing IF/FOR/WHILE blocks
-/// to the function call site.
 enum ControlFlow {
     Normal,
     Return(Value),
 }
 
-/// A single exported item collected from a PUB declaration, ready to be
-/// merged into another Interpreter's state (used for the cross-file
-/// PUB FUNCTION / PUB DECLARE / PUB CONST module system).
 #[derive(Debug, Clone)]
 pub enum Export {
     Function {
         name: String,
-        parameters: Vec<String>,
+        parameters: Vec<FunctionParam>,
         body: Vec<Spanned<Statement>>,
     },
     Const {
@@ -61,10 +57,6 @@ impl Interpreter {
         }
     }
 
-    /// Strips a Statement::Public wrapper to reveal the declaration
-    /// underneath, so pre-passes (function registration, etc.) can match
-    /// on the real statement regardless of whether it was marked PUB.
-    /// Statements that aren't wrapped are returned unchanged.
     fn unwrap_public(stmt: &Statement) -> &Statement {
         match stmt {
             Statement::Public(inner) => &inner.node,
@@ -73,7 +65,6 @@ impl Interpreter {
     }
 
     pub fn run(&mut self, statements: &[Spanned<Statement>]) -> Result<(), String> {
-        // Process imports first
         for stmt in statements {
             if let Statement::Import { modules } = Self::unwrap_public(&stmt.node) {
                 for module_import in modules {
@@ -101,14 +92,13 @@ impl Interpreter {
                 }
             }
         }
-        // Pre-pass: register every function declaration before executing
-        // anything, so forward references and recursion both work
-        // regardless of declaration order.
+
         for stmt in statements {
             if let Statement::FunctionDeclaration {
                 name,
                 parameters,
                 body,
+                ..
             } = Self::unwrap_public(&stmt.node)
             {
                 self.functions.insert(
@@ -131,11 +121,6 @@ impl Interpreter {
         self.environment.print_state();
     }
 
-    /// Walks `statements` for every top-level PUB declaration and returns
-    /// its current value as held by this interpreter, which must already
-    /// have finished running those statements. This is how a sibling
-    /// file's public functions/consts/arrays get handed to another
-    /// Interpreter for merging.
     pub fn collect_exports(
         &self,
         statements: &[Spanned<Statement>],
@@ -149,6 +134,7 @@ impl Interpreter {
                         name,
                         parameters,
                         body,
+                        ..
                     } => {
                         exports.push(Export::Function {
                             name: name.clone(),
@@ -183,9 +169,6 @@ impl Interpreter {
         Ok(exports)
     }
 
-    /// Merges a set of exports (collected from a sibling file via
-    /// collect_exports) into this interpreter's own state, as if they had
-    /// been declared directly in this file.
     pub fn merge_exports(&mut self, exports: Vec<Export>) -> Result<(), String> {
         for export in exports {
             match export {
@@ -208,9 +191,6 @@ impl Interpreter {
         Ok(())
     }
 
-    /// Returns the persistent-storage key for `name` if it refers to a
-    /// STATIC variable in the function currently executing (the top of
-    /// the static scope stack), or None if it's an ordinary variable.
     fn current_static_key(&self, name: &str) -> Option<(String, String)> {
         let (func_name, static_names) = self.static_scope_stack.last()?;
         if static_names.iter().any(|n| n == name) {
@@ -223,19 +203,41 @@ impl Interpreter {
     fn execute_statement(&mut self, stmt: &Spanned<Statement>) -> Result<ControlFlow, String> {
         match &stmt.node {
             Statement::Public(inner) => self.execute_statement(inner),
-            Statement::Import { .. } => {
-                // Already processed in the run() pre-pass
-                Ok(ControlFlow::Normal)
-            }
+            Statement::Import { .. } => Ok(ControlFlow::Normal),
             Statement::Assign {
-                variable,
+                variables,
                 expression,
             } => {
                 let value = self.evaluate_expression(expression)?;
-                if let Some(key) = self.current_static_key(variable) {
-                    self.statics.insert(key, value);
+                if variables.len() == 1 {
+                    let variable = &variables[0];
+                    if let Some(key) = self.current_static_key(variable) {
+                        self.statics.insert(key, value);
+                    } else {
+                        self.environment.set(variable, value)?;
+                    }
+                } else if let Value::Array(values) = value {
+                    for (i, variable) in variables.iter().enumerate() {
+                        let val = values.get(i).cloned().unwrap_or(Value::Undefined);
+                        if let Some(key) = self.current_static_key(variable) {
+                            self.statics.insert(key, val);
+                        } else {
+                            self.environment.set(variable, val)?;
+                        }
+                    }
                 } else {
-                    self.environment.set(variable, value)?;
+                    for (i, variable) in variables.iter().enumerate() {
+                        let val = if i == 0 {
+                            value.clone()
+                        } else {
+                            Value::Undefined
+                        };
+                        if let Some(key) = self.current_static_key(variable) {
+                            self.statics.insert(key, val);
+                        } else {
+                            self.environment.set(variable, val)?;
+                        }
+                    }
                 }
                 Ok(ControlFlow::Normal)
             }
@@ -272,14 +274,7 @@ impl Interpreter {
                 println!();
                 Ok(ControlFlow::Normal)
             }
-            Statement::StaticDeclaration { .. } => {
-                // All real work (init-once-ever, plus every read/write of
-                // this name for the rest of the call) is handled by the
-                // static scope stack set up in call_function, and by the
-                // redirection in Assign/Identifier above. This statement
-                // is purely positional in the AST by the time we get here.
-                Ok(ControlFlow::Normal)
-            }
+            Statement::StaticDeclaration { .. } => Ok(ControlFlow::Normal),
             Statement::ExpressionStatement(expr) => {
                 self.evaluate_expression(expr)?;
                 Ok(ControlFlow::Normal)
@@ -369,11 +364,7 @@ impl Interpreter {
                     Err("Array index must be a number".to_string())
                 }
             }
-            Statement::FunctionDeclaration { .. } => {
-                // Already registered in the pre-pass; nothing to do at
-                // execution time when encountered inline.
-                Ok(ControlFlow::Normal)
-            }
+            Statement::FunctionDeclaration { .. } => Ok(ControlFlow::Normal),
             Statement::Return { value } => {
                 let val = match value {
                     Some(expr) => self.evaluate_expression(expr)?,
@@ -384,8 +375,6 @@ impl Interpreter {
         }
     }
 
-    /// Executes a block of statements, stopping early and propagating a
-    /// RETURN the moment one is hit, rather than running the rest of the block.
     fn execute_block(&mut self, statements: &[Spanned<Statement>]) -> Result<ControlFlow, String> {
         for stmt in statements {
             match self.execute_statement(stmt)? {
@@ -418,25 +407,15 @@ impl Interpreter {
 
             let mut call_env = Environment::new();
             for (param, value) in func.parameters.iter().zip(arg_values.into_iter()) {
-                call_env.set(param, value)?;
+                call_env.set(&param.name, value)?;
             }
 
-            // Collect every STATIC name declared anywhere in this
-            // function's body (including nested IF/FOR/WHILE branches).
-            // Statics are never copied into call_env — they live
-            // permanently in self.statics and are read/written directly
-            // during execution via current_static_key, so the same slot
-            // is shared correctly across recursive calls.
             let mut static_decls = Vec::new();
             Self::collect_static_names(&func.body, &mut static_decls);
             let static_names: Vec<String> = static_decls.iter().map(|(n, _)| n.clone()).collect();
 
             let caller_env = std::mem::replace(&mut self.environment, call_env);
 
-            // Initialize each static's persistent slot the first time
-            // it's ever seen, now that self.environment is the call's
-            // own environment (so the initializer can reference
-            // parameters if it needs to).
             for (static_name, initializer) in &static_decls {
                 let key = (name.to_string(), static_name.clone());
                 if !self.statics.contains_key(&key) {
@@ -470,11 +449,6 @@ impl Interpreter {
         Err(format!("Undefined function: {}", name))
     }
 
-    /// Recursively walks a function body (including nested IF/FOR/WHILE
-    /// branches) collecting every STATIC declaration found, by name. This
-    /// mirrors C's rule that a static can be lexically nested inside a
-    /// conditional or loop, while its storage is fixed for the whole
-    /// function regardless of whether that branch executes on a given call.
     fn collect_static_names(
         body: &[Spanned<Statement>],
         names: &mut Vec<(String, Spanned<Expression>)>,
