@@ -65,6 +65,7 @@ impl Interpreter {
     }
 
     pub fn run(&mut self, statements: &[Spanned<Statement>]) -> Result<(), String> {
+        // Pass 1: imports
         for stmt in statements {
             if let Statement::Import { modules } = Self::unwrap_public(&stmt.node) {
                 for module_import in modules {
@@ -96,6 +97,7 @@ impl Interpreter {
             }
         }
 
+        // Pass 2: register user-defined functions
         for stmt in statements {
             if let Statement::FunctionDeclaration {
                 name,
@@ -114,9 +116,88 @@ impl Interpreter {
             }
         }
 
+        // Pass 3: execute all statements
         for stmt in statements {
             self.execute_statement(stmt)?;
         }
+        Ok(())
+    }
+
+    /// Runs only imports, function registration, and PUB CONST/STATIC
+    /// declarations — no program body execution. Used by the CLI to
+    /// harvest sibling exports without triggering side effects.
+    pub fn run_exports_only(&mut self, statements: &[Spanned<Statement>]) -> Result<(), String> {
+        // Pass 1: imports
+        for stmt in statements {
+            if let Statement::Import { modules } = Self::unwrap_public(&stmt.node) {
+                for module_import in modules {
+                    if let Some(module) = get_module(&module_import.name) {
+                        self.imported_modules.push(module_import.name.clone());
+
+                        let mut funcs = module.functions;
+                        if let Some(imported_funcs) = &module_import.functions {
+                            funcs.retain(|k, _| imported_funcs.iter().any(|f| f == k));
+                        }
+                        for (name, info) in funcs {
+                            self.native_functions.insert(name.to_string(), info);
+                        }
+
+                        let mut consts = module.constants;
+                        if let Some(imported_funcs) = &module_import.functions {
+                            consts.retain(|k, _| imported_funcs.iter().any(|f| f == k));
+                        }
+                        for (name, const_info) in consts {
+                            let value = const_info.value.clone();
+                            self.native_constants
+                                .insert(name.to_string(), value.clone());
+                            self.environment.set_const(name, value)?;
+                        }
+                    }
+                    // Unknown modules in siblings are silently ignored —
+                    // the entry file will catch them if it imports them.
+                }
+            }
+        }
+
+        // Pass 2: register user-defined functions so PUB CONST expressions
+        // that call them can resolve
+        for stmt in statements {
+            if let Statement::FunctionDeclaration {
+                name,
+                parameters,
+                body,
+                ..
+            } = Self::unwrap_public(&stmt.node)
+            {
+                self.functions.insert(
+                    name.clone(),
+                    FunctionDef {
+                        parameters: parameters.clone(),
+                        body: body.clone(),
+                    },
+                );
+            }
+        }
+
+        // Pass 3: only evaluate PUB CONST and PUB STATIC — no body execution
+        for stmt in statements {
+            if let Statement::Public(inner) = &stmt.node {
+                match &inner.node {
+                    Statement::ConstDeclaration { name, expression } => {
+                        let value = self.evaluate_expression(expression)?;
+                        self.environment.set_const(name, value)?;
+                    }
+                    Statement::StaticDeclaration { name, expression } => {
+                        let value = self.evaluate_expression(expression)?;
+                        self.environment.set(name, value)?;
+                    }
+                    // Functions need no evaluation — collect_exports reads
+                    // them directly from the AST.
+                    _ => {}
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -205,6 +286,21 @@ impl Interpreter {
 
     fn execute_statement(&mut self, stmt: &Spanned<Statement>) -> Result<ControlFlow, String> {
         match &stmt.node {
+            Statement::Print { values } => {
+                for value in values {
+                    match value {
+                        OutputValue::Expression(expr) => {
+                            let val = self.evaluate_expression(expr)?;
+                            print!("{}", self.value_to_string(&val));
+                        }
+                        OutputValue::StringLiteral(s) => {
+                            print!("{}", s);
+                        }
+                    }
+                }
+                io::stdout().flush().unwrap();
+                Ok(ControlFlow::Normal)
+            }
             Statement::Public(inner) => self.execute_statement(inner),
             Statement::Import { .. } => Ok(ControlFlow::Normal),
             Statement::Assign {
@@ -508,17 +604,11 @@ impl Interpreter {
                 let idx_val = self.evaluate_expression(index)?;
                 if let Value::Number(idx) = idx_val {
                     let idx = idx as usize;
-                    // First check if the variable holds a Value::Array directly
-                    // (e.g. assigned from a native function return value)
                     let var_val = self.environment.get(name);
                     match var_val {
                         Value::Array(arr) => Ok(arr.get(idx).cloned().unwrap_or(Value::Undefined)),
-                        Value::Undefined => {
-                            // Fall back to declared array slot lookup
-                            Ok(self.environment.get_array_element(name, idx))
-                        }
+                        Value::Undefined => Ok(self.environment.get_array_element(name, idx)),
                         other => {
-                            // Scalar variable — index 0 returns it, else Undefined
                             if idx == 0 {
                                 Ok(other)
                             } else {
@@ -682,14 +772,11 @@ impl Interpreter {
                         return "-Infinity".to_string();
                     }
                 }
-
                 if n.fract() == 0.0 {
                     return format!("{:.0}", n);
                 }
-
                 let formatted = format!("{:.12}", n);
                 let trimmed = formatted.trim_end_matches('0').trim_end_matches('.');
-
                 trimmed.to_string()
             }
             Value::String(s) => s.clone(),

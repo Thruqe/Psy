@@ -76,6 +76,9 @@ pub enum Statement {
     },
     ExpressionStatement(Spanned<Expression>),
     Public(Box<Spanned<Statement>>),
+    Print {
+        values: Vec<OutputValue>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

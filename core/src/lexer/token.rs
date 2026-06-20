@@ -33,6 +33,7 @@ pub enum Token {
     Const,
     Static,
     Arrow,
+    Print,
 
     // Operators
     Plus,
@@ -129,6 +130,7 @@ impl fmt::Display for Token {
             Token::LeftParen => write!(f, "("),
             Token::RightParen => write!(f, ")"),
             Token::Arrow => write!(f, "->"),
+            Token::Print => write!(f, "PRINT"),
         }
     }
 }

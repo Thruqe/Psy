@@ -1,0 +1,81 @@
+IMPORT _OS[OS_PLATFORM, OS_HOSTNAME, OS_CWD, OS_ARGS, OS_CPU, OS_RAM, OS_ENV_GET, OS_ENV_SET, OS_EXEC]
+
+START
+    OUTPUT "========================================="
+    OUTPUT "   PSY OS MODULE"
+    OUTPUT "========================================="
+    OUTPUT ""
+    OUTPUT "--- System Info ---"
+    platform = OS_PLATFORM()
+    OUTPUT "Platform:  "
+    OUTPUT platform
+    hostname = OS_HOSTNAME()
+    OUTPUT "Hostname:  "
+    OUTPUT hostname
+    cwd = OS_CWD()
+    OUTPUT "CWD:       "
+    OUTPUT cwd
+    OUTPUT ""
+    OUTPUT "--- CPU ---"
+    cpu = OS_CPU()
+    OUTPUT "Model:          "
+    OUTPUT cpu[0]
+    OUTPUT "Physical cores: "
+    OUTPUT cpu[1]
+    OUTPUT "Logical cores:  "
+    OUTPUT cpu[2]
+    OUTPUT "Usage %:        "
+    OUTPUT cpu[3]
+    OUTPUT ""
+    OUTPUT "--- RAM (MB) ---"
+    ram = OS_RAM()
+    OUTPUT "Total:   "
+    OUTPUT ram[0]
+    OUTPUT "Used:    "
+    OUTPUT ram[1]
+    OUTPUT "Free:    "
+    OUTPUT ram[2]
+    OUTPUT "Usage %: "
+    OUTPUT ram[3]
+    OUTPUT ""
+    OUTPUT "--- Environment ---"
+    home = OS_ENV_GET("HOME")
+    OUTPUT "HOME: "
+    OUTPUT home
+    path = OS_ENV_GET("PATH")
+    OUTPUT "PATH: "
+    OUTPUT path
+    OS_ENV_SET("PSY_TEST", "hello_from_psy")
+    psyTest = OS_ENV_GET("PSY_TEST")
+    OUTPUT "PSY_TEST (set by us): "
+    OUTPUT psyTest
+    OUTPUT ""
+    OUTPUT "--- CLI Args ---"
+    cliArgs = OS_ARGS()
+    OUTPUT "Args passed: "
+    OUTPUT cliArgs
+    OUTPUT ""
+    OUTPUT "--- OS_EXEC ---"
+    result = OS_EXEC("echo Hello from shell!")
+    OUTPUT "Exit code: "
+    OUTPUT result[0]
+    OUTPUT "Stdout:    "
+    OUTPUT result[1]
+    result2 = OS_EXEC("ls -la")
+    OUTPUT "Directory listing exit code: "
+    OUTPUT result2[0]
+    OUTPUT result2[1]
+    result3 = OS_EXEC("uname -a")
+    OUTPUT "Kernel: "
+    OUTPUT result3[1]
+    OUTPUT "--- Error handling ---"
+    bad = OS_EXEC("this_command_does_not_exist")
+    OUTPUT "Bad command exit code: "
+    OUTPUT bad[0]
+    OUTPUT "Stderr: "
+    OUTPUT bad[2]
+    OUTPUT ""
+    OUTPUT "========================================="
+    OUTPUT "    COMPLETE"
+    OUTPUT "========================================="
+END

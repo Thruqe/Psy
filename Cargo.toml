@@ -9,7 +9,7 @@ members = [
     "crates/math",
     "crates/fs",
     "crates/time",
-    "crates/crypto", "crates/network",
+    "crates/crypto", "crates/network", "crates/os",
 ]
 
 [workspace.package]

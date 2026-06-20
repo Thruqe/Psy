@@ -94,6 +94,7 @@ pub fn get_module(module_name: &str) -> Option<NativeModule> {
         "_NETWORK" => Some(network_module()),
         "_JSON" => Some(json_module()),
         "_ASYNC" => Some(async_module()),
+        "_OS" => Some(os_module()),
         _ => None,
     }
 }
@@ -101,7 +102,7 @@ pub fn get_module(module_name: &str) -> Option<NativeModule> {
 /// Returns all available native module names
 pub fn module_names() -> Vec<&'static str> {
     vec![
-        "_MATH", "_FS", "_TIME", "_CRYPTO", "_NETWORK", "_JSON", "_ASYNC",
+        "_MATH", "_FS", "_TIME", "_CRYPTO", "_NETWORK", "_JSON", "_ASYNC", "_OS",
     ]
 }
 
@@ -1172,6 +1173,127 @@ fn async_module() -> NativeModule {
     NativeModule {
         name: "_ASYNC",
         description: "Asynchronous programming support with tasks, parallel execution, and channels",
+        functions,
+        constants: HashMap::new(),
+    }
+}
+
+fn os_module() -> NativeModule {
+    let mut functions: HashMap<&'static str, NativeFunctionInfo> = HashMap::new();
+
+    functions.insert(
+        "OS_EXEC",
+        NativeFunctionInfo {
+            func: os::os_exec,
+            arity: Arity::AtLeast(1),
+            description: "Executes a shell command and returns [exit_code, stdout, stderr]",
+            return_type: "Array",
+            parameters: &[("command", "String")],
+        },
+    );
+
+    functions.insert(
+        "OS_EXIT",
+        NativeFunctionInfo {
+            func: os::os_exit,
+            arity: Arity::AtLeast(0),
+            description: "Exits the process with an optional exit code",
+            return_type: "Void",
+            parameters: &[("code", "Number")],
+        },
+    );
+
+    functions.insert(
+        "OS_ENV_GET",
+        NativeFunctionInfo {
+            func: os::os_env_get,
+            arity: Arity::Exact(1),
+            description: "Gets an environment variable value",
+            return_type: "String",
+            parameters: &[("key", "String")],
+        },
+    );
+
+    functions.insert(
+        "OS_ENV_SET",
+        NativeFunctionInfo {
+            func: os::os_env_set,
+            arity: Arity::Exact(2),
+            description: "Sets an environment variable",
+            return_type: "Boolean",
+            parameters: &[("key", "String"), ("value", "String")],
+        },
+    );
+
+    functions.insert(
+        "OS_PLATFORM",
+        NativeFunctionInfo {
+            func: os::os_platform,
+            arity: Arity::Exact(0),
+            description: "Returns the current OS platform string",
+            return_type: "String",
+            parameters: &[],
+        },
+    );
+
+    functions.insert(
+        "OS_CWD",
+        NativeFunctionInfo {
+            func: os::os_cwd,
+            arity: Arity::Exact(0),
+            description: "Returns the current working directory",
+            return_type: "String",
+            parameters: &[],
+        },
+    );
+
+    functions.insert(
+        "OS_HOSTNAME",
+        NativeFunctionInfo {
+            func: os::os_hostname,
+            arity: Arity::Exact(0),
+            description: "Returns the system hostname",
+            return_type: "String",
+            parameters: &[],
+        },
+    );
+
+    functions.insert(
+        "OS_ARGS",
+        NativeFunctionInfo {
+            func: os::os_args,
+            arity: Arity::Exact(0),
+            description: "Returns CLI arguments passed after the script name",
+            return_type: "Array",
+            parameters: &[],
+        },
+    );
+
+    functions.insert(
+        "OS_CPU",
+        NativeFunctionInfo {
+            func: os::os_cpu,
+            arity: Arity::Exact(0),
+            description: "Returns CPU info: [model, physical_cores, logical_cores, usage_percent]",
+            return_type: "Array",
+            parameters: &[],
+        },
+    );
+
+    functions.insert(
+        "OS_RAM",
+        NativeFunctionInfo {
+            func: os::os_ram,
+            arity: Arity::Exact(0),
+            description: "Returns RAM info in MB: [total, used, free, usage_percent]",
+            return_type: "Array",
+            parameters: &[],
+        },
+    );
+
+    NativeModule {
+        name: "_OS",
+        description: "Operating system interface: processes, environment, system info",
         functions,
         constants: HashMap::new(),
     }

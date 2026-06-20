@@ -197,6 +197,8 @@ impl Parser {
             self.parse_static_declaration()
         } else if self.check(Token::Pub) {
             self.parse_public_declaration()
+        } else if self.check(Token::Print) {
+            self.parse_print()
         } else if self.peek_is_identifier() {
             if self.peek_is_array_access() {
                 self.parse_array_assign()
@@ -216,6 +218,26 @@ impl Parser {
                 severity: Severity::Error,
             })
         }
+    }
+
+    fn parse_print(&mut self) -> Result<Spanned<Statement>, ParseError> {
+        let (line, column) = self.current_pos();
+        self.advance();
+        self.skip_newlines();
+
+        let mut values = Vec::new();
+
+        while !self.is_at_end() && !self.check(Token::Newline) {
+            let expr = self.parse_expression()?;
+            values.push(OutputValue::Expression(expr));
+
+            if self.check(Token::Comma) {
+                self.advance();
+            }
+        }
+
+        self.skip_newlines();
+        Ok(Spanned::new(Statement::Print { values }, line, column))
     }
 
     fn parse_input(&mut self) -> Result<Spanned<Statement>, ParseError> {

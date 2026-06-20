@@ -79,6 +79,21 @@ impl Formatter {
         let indent = " ".repeat(self.indent_level * self.indent_size);
 
         match &stmt.node {
+            Statement::Print { values } => {
+                let mut parts = Vec::new();
+                for value in values {
+                    match value {
+                        OutputValue::Expression(expr) => {
+                            parts.push(self.format_expression(expr)?);
+                        }
+                        OutputValue::StringLiteral(s) => {
+                            parts.push(format!("\"{}\"", s));
+                        }
+                    }
+                }
+                writeln!(self.output, "{}PRINT {}", indent, parts.join(" "))
+                    .map_err(|e| e.to_string())?;
+            }
             Statement::Public(inner) => {
                 let mark = self.output.len();
 

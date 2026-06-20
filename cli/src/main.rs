@@ -2,6 +2,7 @@ use psycore::formatter::Formatter;
 use psycore::interpreter::Interpreter;
 use psycore::lexer::Lexer;
 use psycore::parser::Parser;
+use psycore::parser::ast::Statement;
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -17,7 +18,6 @@ fn main() {
 
     let filename = &args[1];
 
-    // Check for formatting flag
     let fmt_mode = args.len() > 2 && args[2] == "--fmt";
     let debug_mode = args.len() > 2 && args[2] == "--debug";
 
@@ -29,7 +29,6 @@ fn main() {
         }
     };
 
-    // If --fmt flag is present, format and output
     if fmt_mode {
         let diagnostics = syntax::check(&source);
         let errors: Vec<_> = diagnostics
@@ -79,8 +78,6 @@ fn main() {
         return;
     }
 
-    // Resolve and load sibling .psy files' PUB exports before running
-    // the entry file itself.
     let mut interpreter = Interpreter::new();
     match load_sibling_exports(filename) {
         Ok(exports) => {
@@ -103,12 +100,14 @@ fn main() {
             println!("{:3}: {:?}", i, token);
         }
     }
+
     let mut parser = Parser::new(tokens);
     let (ast, parse_errors) = parser.parse();
 
     for err in &parse_errors {
         eprintln!("Parse error: {}", err);
     }
+
     if debug_mode {
         println!("{:#?}", ast);
     }
@@ -127,10 +126,19 @@ fn main() {
     }
 }
 
-/// Scans the entry file's directory for sibling .psy files, runs each
-/// one in full isolation, collects their PUB exports, and returns the
-/// merged set — erroring hard if any sibling fails to parse, or if two
-/// siblings export a name that collides.
+/// Returns true if the AST contains at least one PUB declaration.
+/// Only files with PUB exports are executed as sibling modules.
+fn has_pub_exports(ast: &[psycore::parser::ast::Spanned<Statement>]) -> bool {
+    ast.iter()
+        .any(|stmt| matches!(&stmt.node, Statement::Public(_)))
+}
+
+/// Scans the entry file's directory for sibling .psy files that contain
+/// PUB declarations, runs only those files to collect their exports,
+/// and returns the merged set.
+///
+/// Files with no PUB declarations are skipped entirely — they are plain
+/// scripts and running them as modules would cause unwanted side effects.
 fn load_sibling_exports(entry_filename: &str) -> Result<Vec<psycore::interpreter::Export>, String> {
     let entry_path = Path::new(entry_filename);
     let dir = match entry_path.parent() {
@@ -149,7 +157,7 @@ fn load_sibling_exports(entry_filename: &str) -> Result<Vec<psycore::interpreter
         }
         if let Some(canonical) = &entry_canonical {
             if fs::canonicalize(&path).ok().as_ref() == Some(canonical) {
-                continue; // Skip the entry file itself.
+                continue; // skip entry file itself
             }
         }
         sibling_paths.push(path);
@@ -189,10 +197,18 @@ fn load_sibling_exports(entry_filename: &str) -> Result<Vec<psycore::interpreter
         let mut parser = Parser::new(tokens);
         let (ast, _parse_errors) = parser.parse();
 
+        // Skip files with no PUB declarations — they are standalone
+        // scripts and should never be executed as side-effect modules.
+        if !has_pub_exports(&ast) {
+            continue;
+        }
+
+        // This file has PUB exports — run it to materialise CONST values,
+        // then harvest the exports.
         let mut sibling_interpreter = Interpreter::new();
         sibling_interpreter
-            .run(&ast)
-            .map_err(|e| format!("Runtime error in sibling module {}: {}", path.display(), e))?;
+            .run_exports_only(&ast)
+            .map_err(|e| format!("Error loading exports from {}: {}", path.display(), e))?;
 
         let exports = sibling_interpreter
             .collect_exports(&ast)
