@@ -6,123 +6,143 @@ START
     OUTPUT "   PSY NETWORK & JSON MODULE"
     OUTPUT "========================================="
     OUTPUT ""
-    
+
     // Test 1: Basic GET request
     OUTPUT "1. HTTP GET Request"
     OUTPUT "-------------------"
-    response = HTTP_GET("http://httpbin.org/get")
+    response = HTTP_GET("http://httpbun.com/get")
     status = response[0]
     headers = response[1]
     body = response[2]
-    
+
     OUTPUT "Status Code: "
     OUTPUT status
     OUTPUT ""
-    
+
     OUTPUT "Response Headers:"
     OUTPUT headers
     OUTPUT ""
-    
-    // Parse the JSON body
-    parsed = JSON_PARSE(body)
-    OUTPUT "Parsed JSON:"
-    OUTPUT parsed
-    OUTPUT ""
-    
-    // Get specific values from JSON
-    origin = JSON_GET(body, "origin")
-    OUTPUT "Your IP Address: "
-    OUTPUT origin
-    OUTPUT ""
-    
+
+    IF status == 200 THEN
+        parsed = JSON_PARSE(body)
+        OUTPUT "Parsed JSON:"
+        OUTPUT parsed
+        OUTPUT ""
+
+        origin = JSON_GET(body, "origin")
+        OUTPUT "Your IP Address: "
+        OUTPUT origin
+        OUTPUT ""
+    ELSE
+        OUTPUT "Request failed, skipping JSON parse"
+        OUTPUT ""
+    ENDIF
+
     // Test 2: URL Encoding
     OUTPUT "2. URL Encoding/Decoding"
     OUTPUT "-----------------------"
     original = "Hello World! This is Psy Network Module"
     encoded = URL_ENCODE(original)
     decoded = URL_DECODE(encoded)
-    
+
     OUTPUT "Original: " + original
     OUTPUT "Encoded:  " + encoded
     OUTPUT "Decoded:  " + decoded
     OUTPUT ""
-    
-    // Test 3: POST Request with custom data
+
+    // Test 3: POST Request
     OUTPUT "3. HTTP POST Request"
     OUTPUT "--------------------"
-    
-    // Create JSON-like data
     userData = JSON_STRINGIFY("[name: Psy User, version: 1.0, language: Psy]")
     OUTPUT "Sending data: " + userData
-    
-    response = HTTP_POST("http://httpbin.org/post", userData)
+
+    response = HTTP_POST("http://httpbun.com/post", userData)
     status = response[0]
     body = response[2]
-    
+
     OUTPUT "Status: "
     OUTPUT status
     OUTPUT ""
-    
-    parsed = JSON_PARSE(body)
-    OUTPUT "Response:"
-    OUTPUT parsed
-    OUTPUT ""
-    
+
+    IF status == 200 THEN
+        parsed = JSON_PARSE(body)
+        OUTPUT "Response:"
+        OUTPUT parsed
+        OUTPUT ""
+    ELSE
+        OUTPUT "POST failed, skipping JSON parse"
+        OUTPUT ""
+    ENDIF
+
     // Test 4: PUT Request
     OUTPUT "4. HTTP PUT Request"
     OUTPUT "-------------------"
     updateData = JSON_STRINGIFY("[status: updated, timestamp: 1234567890]")
-    response = HTTP_PUT("http://httpbin.org/put", updateData)
+    response = HTTP_PUT("http://httpbun.com/put", updateData)
     status = response[0]
     body = response[2]
-    
+
     OUTPUT "Status: "
     OUTPUT status
-    OUTPUT "Response:"
-    OUTPUT JSON_PARSE(body)
-    OUTPUT ""
-    
+
+    IF status == 200 THEN
+        OUTPUT "Response:"
+        OUTPUT JSON_PARSE(body)
+        OUTPUT ""
+    ELSE
+        OUTPUT "PUT failed, skipping JSON parse"
+        OUTPUT ""
+    ENDIF
+
     // Test 5: DELETE Request
     OUTPUT "5. HTTP DELETE Request"
     OUTPUT "----------------------"
-    response = HTTP_DELETE("http://httpbin.org/delete")
+    response = HTTP_DELETE("http://httpbun.com/delete")
     status = response[0]
     body = response[2]
-    
+
     OUTPUT "Status: "
     OUTPUT status
-    OUTPUT "Response:"
-    OUTPUT JSON_PARSE(body)
-    OUTPUT ""
-    
-    // Test 6: Working with JSON responses
+
+    IF status == 200 THEN
+        OUTPUT "Response:"
+        OUTPUT JSON_PARSE(body)
+        OUTPUT ""
+    ELSE
+        OUTPUT "DELETE failed, skipping JSON parse"
+        OUTPUT ""
+    ENDIF
+
+    // Test 6: JSON Manipulation
     OUTPUT "6. JSON Manipulation"
     OUTPUT "--------------------"
-    
-    // Get headers from a response
-    response = HTTP_GET("http://httpbin.org/headers")
+    response = HTTP_GET("http://httpbun.com/headers")
+    status = response[0]
     body = response[2]
-    parsed = JSON_PARSE(body)
-    
-    OUTPUT "Response headers object:"
-    OUTPUT parsed
-    OUTPUT ""
-    
-    keys = JSON_KEYS(body)
-    OUTPUT "Top-level keys: "
-    OUTPUT keys
-    OUTPUT ""
-    
-    // Test 7: Error handling
-    OUTPUT "7. Error Handling"
-    OUTPUT "------------------"
-    
-    // Try invalid URL
+
+    IF status == 200 THEN
+        parsed = JSON_PARSE(body)
+        OUTPUT "Response headers object:"
+        OUTPUT parsed
+        OUTPUT ""
+
+        keys = JSON_KEYS(body)
+        OUTPUT "Top-level keys: "
+        OUTPUT keys
+        OUTPUT ""
+    ELSE
+        OUTPUT "Headers request failed"
+        OUTPUT ""
+    ENDIF
+
+    // Test 7: Invalid domain
+    OUTPUT "7. Invalid Domain Handling"
+    OUTPUT "--------------------------"
     response = HTTP_GET("http://invalid.domain.that.does.not.exist")
     status = response[0]
-    
-    IF status = 0 THEN
-        OUTPUT "Expected error with invalid domain"
+
+    IF status == 0 THEN
+        OUTPUT "Correctly got error for invalid domain"
         OUTPUT "Status: "
         OUTPUT status
     ELSE
@@ -131,27 +151,24 @@ START
         OUTPUT status
     ENDIF
     OUTPUT ""
-    
+
     // Test 8: Building complex requests
     OUTPUT "8. Building Complex Requests"
     OUTPUT "-----------------------------"
-    
-    // Create a user object
     username = "PsyDev"
     email = "dev@psylang.org"
-    
+
     userJson = "{"
     userJson = userJson + "username: " + username + ", "
     userJson = userJson + "email: " + email + ", "
     userJson = userJson + "active: true"
     userJson = userJson + "}"
-    
+
     OUTPUT "Constructed JSON:"
     OUTPUT userJson
     OUTPUT ""
-    
-    // Send it
-    response = HTTP_POST("http://httpbin.org/post", userJson)
+
+    response = HTTP_POST("http://httpbun.com/post", userJson)
     OUTPUT "POST Response Status: "
     OUTPUT response[0]
     OUTPUT ""

@@ -18,8 +18,6 @@ for f in $(find /tmp/regression/examples -name "*.psy"); do
 
     name=$(realpath --relative-to=/tmp/regression/examples "$f")
 
-    # prototypes/ contains examples for modules that don't exist yet
-    # skip entirely rather than scoring as failures.
     if [[ "$name" == prototypes/* ]]; then
         continue
     fi
@@ -28,8 +26,8 @@ for f in $(find /tmp/regression/examples -name "*.psy"); do
         continue
     fi
 
-    output=$(timeout 5 ./target/release/psy "$f" 2>&1)
-    issue=$(echo "$output" | grep -i -E "error|panic")
+    stderr_output=$(timeout 5 ./target/release/psy "$f" 2>&1 1>/dev/null)
+    issue=$(echo "$stderr_output" | grep -i -E "error|panic|runtime")
 
     if [[ "$name" == errors/* ]]; then
         if [ -n "$issue" ]; then
@@ -58,4 +56,7 @@ echo
 echo "=== Results: $passed passed, $failed failed ==="
 if [ ${#failed_names[@]} -gt 0 ]; then
     echo "Failed: ${failed_names[*]}"
+    exit 1
 fi
+
+exit 0

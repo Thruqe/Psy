@@ -1,8 +1,7 @@
+IMPORT _MATH[PI]
+
 START
     OUTPUT PI
-
     PI = 3
-
     OUTPUT PI
 END
-
