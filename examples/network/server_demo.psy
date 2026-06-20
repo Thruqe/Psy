@@ -1,71 +1,85 @@
-IMPORT _NETWORK[SERVER_CREATE, SERVER_LISTEN, SERVER_ROUTE, SERVER_ACCEPT, SERVER_STOP]
-IMPORT _TIME[NOWMS]
+IMPORT _NETWORK[SERVER_CREATE, SERVER_LISTEN, SERVER_ROUTE, SERVER_ACCEPT, SERVER_RESPOND, SERVER_STOP]
+IMPORT _TIME[NOWMS, SLEEP]
 
 START
     OUTPUT "========================================="
-    OUTPUT "   PSY HTTP SERVER-"
+    OUTPUT "   PSY HTTP SERVER TEST"
     OUTPUT "========================================="
     OUTPUT ""
-    
-    // Create server on port 8080
+
     serverId = SERVER_CREATE(8080)
     OUTPUT "Server created: "
     OUTPUT serverId
-    OUTPUT ""
-    
-    // Add routes
+
     SERVER_ROUTE(serverId, "GET", "/")
     SERVER_ROUTE(serverId, "GET", "/hello")
     SERVER_ROUTE(serverId, "POST", "/data")
     SERVER_ROUTE(serverId, "ANY", "/api")
-    
-    OUTPUT "Routes configured:"
-    OUTPUT "  GET /"
-    OUTPUT "  GET /hello"
-    OUTPUT "  POST /data"
-    OUTPUT "  ANY /api"
-    OUTPUT ""
-    
-    // Start listening
+
+    OUTPUT "Routes configured: GET /, GET /hello, POST /data, ANY /api"
+
     SERVER_LISTEN(serverId)
-    OUTPUT "Server is now listening on http://localhost:8080"
-    OUTPUT "Will run for 3 seconds..."
-    OUTPUT "Open http://localhost:8080 in your browser to test!"
+    OUTPUT "Listening on http://localhost:8080"
+    OUTPUT "Will run for 10 seconds - send requests now!"
     OUTPUT ""
-    
-    // Main accept loop - run for 3 seconds
-    running = TRUE
-    counter = 0
+
+    counter   = 0
     startTime = NOWMS()
-    
+    running   = TRUE
+
     WHILE running
-        // Accept incoming connections (non-blocking)
         result = SERVER_ACCEPT(serverId)
-        
-        // Check if a connection was accepted
+
         IF result != "no_connection" THEN
             counter = counter + 1
-            OUTPUT "Request #"
+
+            // result is [request_id, method, path, headers, body]
+            reqId   = result[0]
+            method  = result[1]
+            path    = result[2]
+            headers = result[3]
+            body    = result[4]
+
+            OUTPUT "--- Request #"
             OUTPUT counter
-            OUTPUT " from "
-            OUTPUT result
+            OUTPUT method
+            OUTPUT path
+            IF body != "" THEN
+                OUTPUT "Body: "
+                OUTPUT body
+            ENDIF
+
+            // Build a JSON response based on the route
+            IF path == "/" THEN
+                responseBody = "{\"message\": \"Welcome to Psy Server!\", \"path\": \"/\"}"
+            ELSE
+                IF path == "/hello" THEN
+                    responseBody = "{\"message\": \"Hello, World!\", \"path\": \"/hello\"}"
+                ELSE
+                    IF path == "/data" THEN
+                        responseBody = "{\"message\": \"Data received\", \"body\": \"" + body + "\"}"
+                    ELSE
+                        responseBody = "{\"message\": \"OK\", \"path\": \"" + path + "\"}"
+                    ENDIF
+                ENDIF
+            ENDIF
+
+            SERVER_RESPOND(reqId, responseBody, 200)
+            OUTPUT "Responded to request #"
+            OUTPUT counter
         ENDIF
-        
-        // Small sleep to prevent CPU spinning
-        // Check if 3 seconds have passed
+
         currentTime = NOWMS()
-        elapsed = currentTime - startTime
-        
-        IF elapsed >= 3000 THEN
+        elapsed     = currentTime - startTime
+
+        IF elapsed >= 10000 THEN
             running = FALSE
         ENDIF
     ENDWHILE
-    
-    // Stop the server
+
     SERVER_STOP(serverId)
     OUTPUT ""
-    OUTPUT "Server stopped after 3 seconds."
+    OUTPUT "Server stopped."
     OUTPUT "Total requests handled: "
     OUTPUT counter
-
 END

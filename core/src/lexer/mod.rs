@@ -66,38 +66,6 @@ impl Lexer {
                 continue;
             }
 
-            // Extra Single-line comments: #
-
-            if ch == '#' {
-                while self.position < self.chars.len() && self.chars[self.position] != '\n' {
-                    self.advance_char();
-                }
-                continue;
-            }
-
-            // String literals
-            if ch == '"' {
-                let (line, column) = (self.line, self.column);
-                let mut string = String::new();
-                self.advance_char(); // Skip opening quote
-
-                while self.position < self.chars.len() && self.chars[self.position] != '"' {
-                    string.push(self.chars[self.position]);
-                    self.advance_char();
-                }
-
-                if self.position < self.chars.len() {
-                    self.advance_char(); // Skip closing quote
-                }
-
-                tokens.push(PositionedToken {
-                    token: Token::StringLiteral(string),
-                    line,
-                    column,
-                });
-                continue;
-            }
-
             // Numbers
             if ch.is_ascii_digit()
                 || (ch == '.' && self.peek().map_or(false, |c| c.is_ascii_digit()))
@@ -127,6 +95,44 @@ impl Lexer {
                         column,
                     });
                 }
+                continue;
+            }
+            if ch == '"' {
+                let (line, column) = (self.line, self.column);
+                let mut string = String::new();
+                self.advance_char(); // Skip opening quote
+
+                while self.position < self.chars.len() && self.chars[self.position] != '"' {
+                    let c = self.chars[self.position];
+                    if c == '\\' {
+                        self.advance_char(); // consume backslash
+                        if self.position < self.chars.len() {
+                            let escaped = match self.chars[self.position] {
+                                'n' => '\n',
+                                't' => '\t',
+                                'r' => '\r',
+                                '"' => '"',
+                                '\\' => '\\',
+                                other => other, // pass through unknown escapes as-is
+                            };
+                            string.push(escaped);
+                            self.advance_char();
+                        }
+                    } else {
+                        string.push(c);
+                        self.advance_char();
+                    }
+                }
+
+                if self.position < self.chars.len() {
+                    self.advance_char(); // Skip closing quote
+                }
+
+                tokens.push(PositionedToken {
+                    token: Token::StringLiteral(string),
+                    line,
+                    column,
+                });
                 continue;
             }
 

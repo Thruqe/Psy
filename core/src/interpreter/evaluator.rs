@@ -507,7 +507,25 @@ impl Interpreter {
             Expression::ArrayAccess { name, index } => {
                 let idx_val = self.evaluate_expression(index)?;
                 if let Value::Number(idx) = idx_val {
-                    Ok(self.environment.get_array_element(name, idx as usize))
+                    let idx = idx as usize;
+                    // First check if the variable holds a Value::Array directly
+                    // (e.g. assigned from a native function return value)
+                    let var_val = self.environment.get(name);
+                    match var_val {
+                        Value::Array(arr) => Ok(arr.get(idx).cloned().unwrap_or(Value::Undefined)),
+                        Value::Undefined => {
+                            // Fall back to declared array slot lookup
+                            Ok(self.environment.get_array_element(name, idx))
+                        }
+                        other => {
+                            // Scalar variable — index 0 returns it, else Undefined
+                            if idx == 0 {
+                                Ok(other)
+                            } else {
+                                Ok(Value::Undefined)
+                            }
+                        }
+                    }
                 } else {
                     Err("Array index must be a number".to_string())
                 }

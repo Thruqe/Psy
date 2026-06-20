@@ -923,10 +923,14 @@ fn network_module() -> NativeModule {
         "SERVER_RESPOND",
         NativeFunctionInfo {
             func: network::server_respond,
-            arity: Arity::Exact(2),
-            description: "Sends an HTTP response",
-            return_type: "String",
-            parameters: &[("server_id", "String"), ("response", "String")],
+            arity: Arity::AtLeast(2),
+            description: "Sends an HTTP response (request_id, body, status_code?)",
+            return_type: "Boolean",
+            parameters: &[
+                ("request_id", "String"),
+                ("body", "String"),
+                ("status", "Number"),
+            ],
         },
     );
 
@@ -949,6 +953,50 @@ fn network_module() -> NativeModule {
             description: "Lists all active servers",
             return_type: "Array",
             parameters: &[],
+        },
+    );
+
+    functions.insert(
+        "WS_CONNECT",
+        NativeFunctionInfo {
+            func: network::websocket_connect,
+            arity: Arity::Exact(1),
+            description: "Opens a WebSocket connection to the specified URL",
+            return_type: "String",
+            parameters: &[("url", "String")],
+        },
+    );
+
+    functions.insert(
+        "WS_SEND",
+        NativeFunctionInfo {
+            func: network::websocket_send,
+            arity: Arity::Exact(2),
+            description: "Sends a message over a WebSocket connection",
+            return_type: "Boolean",
+            parameters: &[("connection_id", "String"), ("message", "String")],
+        },
+    );
+
+    functions.insert(
+        "WS_RECEIVE",
+        NativeFunctionInfo {
+            func: network::websocket_receive,
+            arity: Arity::Exact(1),
+            description: "Receives the next message from a WebSocket connection",
+            return_type: "String",
+            parameters: &[("connection_id", "String")],
+        },
+    );
+
+    functions.insert(
+        "WS_CLOSE",
+        NativeFunctionInfo {
+            func: network::websocket_close,
+            arity: Arity::Exact(1),
+            description: "Closes a WebSocket connection",
+            return_type: "Boolean",
+            parameters: &[("connection_id", "String")],
         },
     );
 
