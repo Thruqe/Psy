@@ -1,45 +1,54 @@
 IMPORT _NETWORK[SERVER_CREATE, SERVER_LISTEN, SERVER_ROUTE, SERVER_ACCEPT, SERVER_RESPOND, SERVER_STOP]
-IMPORT _TIME[NOWMS, SLEEP]
+IMPORT _TIME[NOWMS]
 
 START
     OUTPUT "========================================="
+
     OUTPUT "   PSY HTTP SERVER TEST"
+
     OUTPUT "========================================="
+
     OUTPUT ""
 
     serverId = SERVER_CREATE(8080)
+
     OUTPUT "Server created: "
+
     OUTPUT serverId
 
     SERVER_ROUTE(serverId, "GET", "/")
+
     SERVER_ROUTE(serverId, "GET", "/hello")
+
     SERVER_ROUTE(serverId, "POST", "/data")
+
     SERVER_ROUTE(serverId, "ANY", "/api")
 
     OUTPUT "Routes configured: GET /, GET /hello, POST /data, ANY /api"
 
     SERVER_LISTEN(serverId)
+
     OUTPUT "Listening on http://localhost:8080"
+
     OUTPUT "Will run for 10 seconds - send requests now!"
+
     OUTPUT ""
 
-    counter   = 0
+    counter = 0
+
     startTime = NOWMS()
-    running   = TRUE
+
+    running = TRUE
 
     WHILE running
         result = SERVER_ACCEPT(serverId)
-
         IF result != "no_connection" THEN
             counter = counter + 1
-
-            // result is [request_id, method, path, headers, body]
-            reqId   = result[0]
-            method  = result[1]
-            path    = result[2]
+            reqId = result[0]
+            method = result[1]
+            path = result[2]
             headers = result[3]
-            body    = result[4]
-
+            body = result[4]
             OUTPUT "--- Request #"
             OUTPUT counter
             OUTPUT method
@@ -48,8 +57,6 @@ START
                 OUTPUT "Body: "
                 OUTPUT body
             ENDIF
-
-            // Build a JSON response based on the route
             IF path == "/" THEN
                 responseBody = "{\"message\": \"Welcome to Psy Server!\", \"path\": \"/\"}"
             ELSE
@@ -63,23 +70,25 @@ START
                     ENDIF
                 ENDIF
             ENDIF
-
             SERVER_RESPOND(reqId, responseBody, 200)
             OUTPUT "Responded to request #"
             OUTPUT counter
         ENDIF
-
         currentTime = NOWMS()
-        elapsed     = currentTime - startTime
-
+        elapsed = currentTime - startTime
         IF elapsed >= 10000 THEN
             running = FALSE
         ENDIF
     ENDWHILE
 
     SERVER_STOP(serverId)
+
     OUTPUT ""
+
     OUTPUT "Server stopped."
+
     OUTPUT "Total requests handled: "
+
     OUTPUT counter
 END
+

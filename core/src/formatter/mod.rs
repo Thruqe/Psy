@@ -40,9 +40,32 @@ impl Formatter {
 
         self.indent_level += 1;
         for (i, stmt) in body.iter().enumerate() {
-            if i > 0 {
+            let is_block = matches!(
+                &stmt.node,
+                Statement::If { .. }
+                    | Statement::ForLoop { .. }
+                    | Statement::WhileLoop { .. }
+                    | Statement::FunctionDeclaration { .. }
+                    | Statement::Public(_)
+            );
+
+            let prev_is_block = if i > 0 {
+                matches!(
+                    &body[i - 1].node,
+                    Statement::If { .. }
+                        | Statement::ForLoop { .. }
+                        | Statement::WhileLoop { .. }
+                        | Statement::FunctionDeclaration { .. }
+                        | Statement::Public(_)
+                )
+            } else {
+                false
+            };
+
+            if i > 0 && (is_block || prev_is_block) {
                 writeln!(self.output).map_err(|e| e.to_string())?;
             }
+
             self.format_statement(stmt)?;
         }
         self.indent_level -= 1;
@@ -268,7 +291,20 @@ impl Formatter {
     fn format_expression(&self, expr: &Spanned<Expression>) -> Result<String, String> {
         match &expr.node {
             Expression::Number(n) => Ok(n.to_string()),
-            Expression::String(s) => Ok(format!("\"{}\"", s)),
+            Expression::String(s) => {
+                let escaped = s
+                    .chars()
+                    .map(|c| match c {
+                        '"' => "\\\"".to_string(),
+                        '\\' => "\\\\".to_string(),
+                        '\n' => "\\n".to_string(),
+                        '\t' => "\\t".to_string(),
+                        '\r' => "\\r".to_string(),
+                        other => other.to_string(),
+                    })
+                    .collect::<String>();
+                Ok(format!("\"{}\"", escaped))
+            }
             Expression::Boolean(b) => Ok(b.to_string().to_uppercase()),
             Expression::Identifier(name) => Ok(name.clone()),
             Expression::ArrayAccess { name, index } => {

@@ -2,44 +2,64 @@ IMPORT _NETWORK[WS_CONNECT, WS_SEND, WS_RECEIVE, WS_CLOSE]
 
 START
     OUTPUT "========================================="
+
     OUTPUT "   PSY WEBSOCKET TEST"
+
     OUTPUT "========================================="
+
     OUTPUT ""
 
-    // Connect to a public echo server
     OUTPUT "Connecting to echo.websocket.org..."
+
     connId = WS_CONNECT("wss://echo.websocket.org")
+
     OUTPUT "Connected! Connection ID: "
+
     OUTPUT connId
+
     OUTPUT ""
 
-    // Send message 1
     OUTPUT "Sending: Hello from Psy!"
+
     WS_SEND(connId, "Hello from Psy!")
+
     reply = WS_RECEIVE(connId)
+
     OUTPUT "Echo received: "
+
     OUTPUT reply
+
     OUTPUT ""
 
-    // Send message 2
     OUTPUT "Sending: {\"type\": \"ping\", \"id\": 1}"
+
     WS_SEND(connId, "{\"type\": \"ping\", \"id\": 1}")
+
     reply2 = WS_RECEIVE(connId)
+
     OUTPUT "Echo received: "
+
     OUTPUT reply2
+
     OUTPUT ""
 
-    // Send message 3
     OUTPUT "Sending: Goodbye!"
+
     WS_SEND(connId, "Goodbye!")
+
     reply3 = WS_RECEIVE(connId)
+
     OUTPUT "Echo received: "
+
     OUTPUT reply3
+
     OUTPUT ""
 
-    // Close connection
     WS_CLOSE(connId)
+
     OUTPUT "Connection closed."
+
     OUTPUT ""
+
     OUTPUT "WebSocket test complete!"
 END

@@ -1268,10 +1268,24 @@ fn walk_expression(expr: &Expression, ctx: &mut SemanticContext) {
             let left_type = infer_expression_type(&left.node, ctx);
             let right_type = infer_expression_type(&right.node, ctx);
 
-            if left_type != InferredType::Unknown
-                && right_type != InferredType::Unknown
-                && left_type != right_type
+            // Skip check if either side is unknown (e.g. array access result)
+            if left_type == InferredType::Unknown || right_type == InferredType::Unknown {
+                return;
+            }
+
+            // String concatenation with + is always valid
+            if matches!(operator, Operator::Add)
+                && (left_type == InferredType::String || right_type == InferredType::String)
             {
+                return;
+            }
+
+            // Equality/inequality operators work across any types
+            if matches!(operator, Operator::Equal | Operator::NotEqual) {
+                return;
+            }
+
+            if left_type != right_type {
                 let op_str = match operator {
                     Operator::Add => "+",
                     Operator::Subtract => "-",
@@ -1288,17 +1302,16 @@ fn walk_expression(expr: &Expression, ctx: &mut SemanticContext) {
                     Operator::And => "AND",
                     Operator::Or => "OR",
                 };
-
                 ctx.diagnostics.push(Diagnostic {
-                    range: Range {
-                        start: Position { line: left.line.saturating_sub(1) as u32, character: left.column.saturating_sub(1) as u32 },
-                        end: Position { line: right.line.saturating_sub(1) as u32, character: (right.column.saturating_sub(1) + 1) as u32 },
-                    },
-                    severity: Some(DiagnosticSeverity::ERROR),
-                    source: Some("psy-typecheck".to_string()),
-                    message: format!("Type mismatch: Cannot compare or operate '{}' and '{}' using the '{}' operator.", left_type.to_str(), right_type.to_str(), op_str),
-                    ..Default::default()
-                });
+            range: Range {
+                start: Position { line: left.line.saturating_sub(1) as u32, character: left.column.saturating_sub(1) as u32 },
+                end: Position { line: right.line.saturating_sub(1) as u32, character: (right.column.saturating_sub(1) + 1) as u32 },
+            },
+            severity: Some(DiagnosticSeverity::ERROR),
+            source: Some("psy-typecheck".to_string()),
+            message: format!("Type mismatch: Cannot compare or operate '{}' and '{}' using the '{}' operator.", left_type.to_str(), right_type.to_str(), op_str),
+            ..Default::default()
+        });
             }
         }
         Expression::UnaryOp {
@@ -1349,7 +1362,7 @@ fn infer_expression_type(expr: &Expression, ctx: &SemanticContext) -> InferredTy
             .get(name)
             .cloned()
             .unwrap_or(InferredType::Unknown),
-        Expression::ArrayAccess { .. } => InferredType::Number,
+        Expression::ArrayAccess { .. } => InferredType::Unknown,
         Expression::FunctionCall { name, .. } => {
             let upper = name.to_uppercase();
 

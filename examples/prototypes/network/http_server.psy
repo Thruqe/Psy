@@ -1,8 +1,0 @@
-IMPORT _HTTP[SERVER]
-
-START
-
-server = new SERVER()
-
-
-END

@@ -1,36 +1,46 @@
-IMPORT _FS[READFILE, WRITEFILE, EXISTS, LISTDIR, ISFILE, ISDIR, DELETE]
+IMPORT _FS[READFILE, WRITEFILE, EXISTS, LISTDIR, ISFILE, DELETE]
 
 START
-    // Check if file exists
     fileExists = EXISTS("test.txt")
+
     OUTPUT "test.txt exists: "
+
     OUTPUT fileExists
+
     OUTPUT ""
-    
-    // Write to a file
-    WRITEFILE("test.txt", "Hello from Psy!\nThis is a test file.")
+
+    WRITEFILE("test.txt", "Hello from Psy! This is a test file.")
+
     OUTPUT "File written successfully"
+
     OUTPUT ""
-    
-    // Read the file
+
     content = READFILE("test.txt")
+
     OUTPUT "File content:"
+
     OUTPUT content
+
     OUTPUT ""
-    
-    // Check if it's a file
+
     isFileResult = ISFILE("test.txt")
+
     OUTPUT "Is it a file: "
+
     OUTPUT isFileResult
+
     OUTPUT ""
-    
-    // List current directory
+
     files = LISTDIR(".")
+
     OUTPUT "Directory contents:"
+
     OUTPUT files
+
     OUTPUT ""
-    
-    // Clean up - delete the test file
+
     DELETE("test.txt")
+
     OUTPUT "File deleted"
 END
+
