@@ -72,27 +72,4 @@ START
     OUTPUT "All tasks completed:"
     OUTPUT allResults
     OUTPUT ""
-    
-    // Test 5: Async WebSocket-style ping/pong
-    OUTPUT "5. WebSocket Ping/Pong Simulation"
-    OUTPUT "---------------------------------"
-    
-    pingTask = ASYNC_RUN("ping")
-    ASYNC_SPAWN(pingTask, "send_ping")
-    
-    OUTPUT "Ping sent..."
-    ASYNC_SLEEP(100)
-    
-    pongTask = ASYNC_RUN("pong")
-    ASYNC_SPAWN(pongTask, "receive_pong")
-    
-    OUTPUT "Waiting for pong..."
-    pongResult = ASYNC_AWAIT(pongTask)
-    OUTPUT "Received: " + pongResult
-    OUTPUT ""
-    
-    OUTPUT "========================================="
-    OUTPUT "        ASYNC COMPLETE!"
-    OUTPUT "========================================="
-
 END

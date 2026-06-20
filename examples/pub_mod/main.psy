@@ -1,5 +1,4 @@
-// test.psy 
 START
     OUTPUT Hello
-    OUTPUT square(7)
+    OUTPUT Square(7)
 END

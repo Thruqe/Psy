@@ -1,5 +1,5 @@
 START
-    PUB FUNCTION square(n)
+    PUB FUNCTION Square(n)
         RETURN n * n
     ENDFUNCTION
 END
