@@ -1,27 +1,30 @@
-pub mod parser;
-pub mod serializer;
+mod bridge;
 
 use types::Value;
 
 pub fn json_parse(args: &[Value]) -> Result<Value, String> {
-    if args.is_empty() {
-        return Err("JSON_PARSE expects 1 argument (json string)".to_string());
-    }
-
-    let json_str = match &args[0] {
-        Value::String(s) => s.clone(),
-        _ => return Err("JSON_PARSE expects a string".to_string()),
+    let json_str = match args.first() {
+        Some(Value::String(s)) => s,
+        Some(_) => return Err("JSON_PARSE expects a string argument".to_string()),
+        None => return Err("JSON_PARSE expects 1 argument (json string)".to_string()),
     };
 
-    parser::parse(json_str.trim())
+    let serde_val: serde_json::Value =
+        serde_json::from_str(json_str.trim()).map_err(|e| format!("JSON_PARSE error: {}", e))?;
+
+    Ok(bridge::from_serde(serde_val))
 }
 
 pub fn json_stringify(args: &[Value]) -> Result<Value, String> {
-    if args.is_empty() {
-        return Err("JSON_STRINGIFY expects 1 argument (value)".to_string());
+    match args.first() {
+        Some(v) => {
+            let serde_val = bridge::to_serde(v);
+            let s = serde_json::to_string(&serde_val)
+                .map_err(|e| format!("JSON_STRINGIFY error: {}", e))?;
+            Ok(Value::String(s))
+        }
+        None => Err("JSON_STRINGIFY expects 1 argument (value)".to_string()),
     }
-
-    Ok(Value::String(serializer::stringify(&args[0])))
 }
 
 pub fn json_get(args: &[Value]) -> Result<Value, String> {
@@ -30,88 +33,31 @@ pub fn json_get(args: &[Value]) -> Result<Value, String> {
     }
 
     let json_str = match &args[0] {
-        Value::String(s) => s.clone(),
+        Value::String(s) => s,
         _ => return Err("JSON_GET expects a string as first argument".to_string()),
     };
 
-    let key = match &args[1] {
-        Value::String(s) => s.clone(),
-        Value::Number(n) => format!("{}", n),
-        _ => return Err("JSON_GET expects a string or number as key".to_string()),
+    let serde_val: serde_json::Value = serde_json::from_str(json_str.trim())
+        .map_err(|e| format!("JSON_GET parse error: {}", e))?;
+
+    let result = match &args[1] {
+        Value::String(key) => serde_val
+            .get(key.as_str())
+            .cloned()
+            .ok_or_else(|| format!("Key '{}' not found", key))?,
+
+        Value::Number(n) => {
+            let idx = *n as usize;
+            serde_val
+                .get(idx)
+                .cloned()
+                .ok_or_else(|| format!("Index {} out of bounds", idx))?
+        }
+
+        _ => return Err("JSON_GET key must be a string or number".to_string()),
     };
 
-    let parsed = parser::parse(&json_str)?;
-
-    match &parsed {
-        Value::Array(arr) => {
-            // Try numeric index first
-            if let Ok(index) = key.parse::<usize>() {
-                return arr
-                    .get(index)
-                    .cloned()
-                    .ok_or_else(|| format!("Index {} out of bounds", index));
-            }
-
-            // Try string key (for objects represented as arrays of "key: value" strings)
-            for item in arr {
-                if let Value::String(s) = item {
-                    if let Some(colon_pos) = s.find(':') {
-                        let item_key = s[..colon_pos].trim();
-                        if item_key == key {
-                            let value_str = s[colon_pos + 1..].trim();
-                            // Try to parse the value as JSON
-                            if value_str.starts_with('[') || value_str.starts_with('{') {
-                                return parser::parse(value_str);
-                            } else {
-                                return Ok(Value::String(value_str.to_string()));
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Check for nested objects
-            for item in arr {
-                if let Value::String(s) = item {
-                    if let Some(colon_pos) = s.find(':') {
-                        let item_key = s[..colon_pos].trim();
-                        let value_str = s[colon_pos + 1..].trim();
-
-                        // If value is an array/object, parse it and search recursively
-                        if value_str.starts_with('[') || value_str.starts_with('{') {
-                            if let Ok(nested) = parser::parse(value_str) {
-                                if let Value::Array(nested_arr) = nested {
-                                    // Try to find the key in the nested array
-                                    for nested_item in &nested_arr {
-                                        if let Value::String(ns) = nested_item {
-                                            if let Some(nested_colon) = ns.find(':') {
-                                                let n_key = ns[..nested_colon].trim();
-                                                if n_key == key {
-                                                    let n_value = ns[nested_colon + 1..].trim();
-                                                    if n_value.starts_with('[')
-                                                        || n_value.starts_with('{')
-                                                    {
-                                                        return parser::parse(n_value);
-                                                    } else {
-                                                        return Ok(Value::String(
-                                                            n_value.to_string(),
-                                                        ));
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Err(format!("Key '{}' not found in JSON object", key))
-        }
-        _ => Err("JSON_GET requires a parsed JSON array or object".to_string()),
-    }
+    Ok(bridge::from_serde(result))
 }
 
 pub fn json_set(args: &[Value]) -> Result<Value, String> {
@@ -120,77 +66,46 @@ pub fn json_set(args: &[Value]) -> Result<Value, String> {
     }
 
     let json_str = match &args[0] {
-        Value::String(s) => s.clone(),
+        Value::String(s) => s,
         _ => return Err("JSON_SET expects a string as first argument".to_string()),
     };
 
     let key = match &args[1] {
         Value::String(s) => s.clone(),
-        _ => return Err("JSON_SET expects a string key".to_string()),
+        _ => return Err("JSON_SET key must be a string".to_string()),
     };
 
-    let value = &args[2];
+    let mut serde_val: serde_json::Value = serde_json::from_str(json_str.trim())
+        .map_err(|e| format!("JSON_SET parse error: {}", e))?;
 
-    let mut parsed = parser::parse(&json_str)?;
-
-    if let Value::Array(ref mut arr) = parsed {
-        // Try to update existing key
-        for item in arr.iter_mut() {
-            if let Value::String(s) = item {
-                if let Some(colon_pos) = s.find(':') {
-                    let item_key = s[..colon_pos].trim();
-                    if item_key == key {
-                        *item = Value::String(format!("{}: {}", key, serializer::stringify(value)));
-                        return Ok(Value::String(serializer::stringify(&Value::Array(
-                            arr.clone(),
-                        ))));
-                    }
-                }
-            }
+    match &mut serde_val {
+        serde_json::Value::Object(map) => {
+            map.insert(key, bridge::to_serde(&args[2]));
         }
-
-        // Key not found, add new key-value pair
-        arr.push(Value::String(format!(
-            "{}: {}",
-            key,
-            serializer::stringify(value)
-        )));
-        Ok(Value::String(serializer::stringify(&Value::Array(
-            arr.clone(),
-        ))))
-    } else {
-        Err("JSON_SET currently only supports object modification".to_string())
+        _ => return Err("JSON_SET requires a JSON object as first argument".to_string()),
     }
+
+    let s = serde_json::to_string(&serde_val)
+        .map_err(|e| format!("JSON_SET serialize error: {}", e))?;
+
+    Ok(Value::String(s))
 }
 
 pub fn json_keys(args: &[Value]) -> Result<Value, String> {
-    if args.is_empty() {
-        return Err("JSON_KEYS expects 1 argument (json_string)".to_string());
-    }
-
-    let json_str = match &args[0] {
-        Value::String(s) => s.clone(),
-        _ => return Err("JSON_KEYS expects a string".to_string()),
+    let json_str = match args.first() {
+        Some(Value::String(s)) => s,
+        Some(_) => return Err("JSON_KEYS expects a string argument".to_string()),
+        None => return Err("JSON_KEYS expects 1 argument (json_string)".to_string()),
     };
 
-    let parsed = parser::parse(&json_str)?;
-    let keys = get_keys(&parsed);
-    Ok(Value::Array(keys))
-}
+    let serde_val: serde_json::Value = serde_json::from_str(json_str.trim())
+        .map_err(|e| format!("JSON_KEYS parse error: {}", e))?;
 
-fn get_keys(value: &Value) -> Vec<Value> {
-    match value {
-        Value::Array(arr) => {
-            let mut keys = Vec::new();
-            for item in arr {
-                if let Value::String(s) = item {
-                    if let Some(pos) = s.find(':') {
-                        keys.push(Value::String(s[..pos].trim().to_string()));
-                    }
-                }
-            }
-            keys
+    match serde_val {
+        serde_json::Value::Object(map) => {
+            let keys = map.keys().map(|k| Value::String(k.clone())).collect();
+            Ok(Value::Array(keys))
         }
-        _ => Vec::new(),
+        _ => Err("JSON_KEYS requires a JSON object".to_string()),
     }
 }
