@@ -57,6 +57,20 @@ fn response_to_value(resp: reqwest::blocking::Response) -> Result<Value, String>
     ]))
 }
 
+/// Sends a request and returns a status-0 error array instead of
+/// propagating network errors as runtime errors. This lets Psy code
+/// handle failures gracefully with IF status == 0 THEN checks.
+fn send_request(req: reqwest::blocking::RequestBuilder) -> Result<Value, String> {
+    match req.send() {
+        Ok(resp) => response_to_value(resp),
+        Err(e) => Ok(Value::Array(vec![
+            Value::Number(0.0),
+            Value::String(String::new()),
+            Value::String(format!("Request failed: {}", e)),
+        ])),
+    }
+}
+
 pub fn get(args: &[Value]) -> Result<Value, String> {
     if args.is_empty() {
         return Err("HTTP_GET expects at least 1 argument (url)".into());
@@ -71,7 +85,7 @@ pub fn get(args: &[Value]) -> Result<Value, String> {
         }
     }
 
-    response_to_value(req.send().map_err(|e| format!("Request failed: {}", e))?)
+    send_request(req)
 }
 
 pub fn post(args: &[Value]) -> Result<Value, String> {
@@ -89,7 +103,7 @@ pub fn post(args: &[Value]) -> Result<Value, String> {
         }
     }
 
-    response_to_value(req.send().map_err(|e| format!("Request failed: {}", e))?)
+    send_request(req)
 }
 
 pub fn put(args: &[Value]) -> Result<Value, String> {
@@ -107,7 +121,7 @@ pub fn put(args: &[Value]) -> Result<Value, String> {
         }
     }
 
-    response_to_value(req.send().map_err(|e| format!("Request failed: {}", e))?)
+    send_request(req)
 }
 
 pub fn delete(args: &[Value]) -> Result<Value, String> {
@@ -124,7 +138,7 @@ pub fn delete(args: &[Value]) -> Result<Value, String> {
         }
     }
 
-    response_to_value(req.send().map_err(|e| format!("Request failed: {}", e))?)
+    send_request(req)
 }
 
 pub fn head(args: &[Value]) -> Result<Value, String> {
@@ -141,7 +155,7 @@ pub fn head(args: &[Value]) -> Result<Value, String> {
         }
     }
 
-    response_to_value(req.send().map_err(|e| format!("Request failed: {}", e))?)
+    send_request(req)
 }
 
 fn string_arg(v: &Value, name: &str) -> Result<String, String> {

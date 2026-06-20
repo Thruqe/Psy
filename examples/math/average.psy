@@ -1,16 +1,17 @@
 START
-    OUTPUT "How many scores do you want to enter?"
-    INPUT count
-    
+    DECLARE scores[5]
+    scores[0] = 85
+    scores[1] = 92
+    scores[2] = 78
+    scores[3] = 90
+    scores[4] = 88
+
     total = 0
-    FOR i = 1 TO count
-        OUTPUT "Enter score "
-        OUTPUT i
-        OUTPUT ": "
-        INPUT score
-        total = total + score
+    FOR i = 0 TO 4
+        total = total + scores[i]
     ENDFOR
-    
+
+    count = 5
     average = total / count
     OUTPUT "The average of "
     OUTPUT count

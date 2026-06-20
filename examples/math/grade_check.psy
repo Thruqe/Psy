@@ -1,18 +1,28 @@
 START
-    INPUT score
+    DECLARE testScores[5]
+    testScores[0] = 95
+    testScores[1] = 72
+    testScores[2] = 63
+    testScores[3] = 51
+    testScores[4] = 40
 
-    IF score >= 70 THEN
-        OUTPUT "Grade: A"
-    ELSE
-        IF score >= 60 THEN
-            OUTPUT "Grade: B"
+    FOR i = 0 TO 4
+        score = testScores[i]
+        PRINT "Score "
+        PRINT score
+        PRINT ": "
+        IF score >= 70 THEN
+            OUTPUT "Grade: A"
         ELSE
-            IF score >= 50 THEN
-                OUTPUT "Grade: C"
+            IF score >= 60 THEN
+                OUTPUT "Grade: B"
             ELSE
-                OUTPUT "Grade: F"
+                IF score >= 50 THEN
+                    OUTPUT "Grade: C"
+                ELSE
+                    OUTPUT "Grade: F"
+                ENDIF
             ENDIF
         ENDIF
-    ENDIF
+    ENDFOR
 END
-

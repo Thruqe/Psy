@@ -1,13 +1,24 @@
 START
-    INPUT n
-    IF n < 0 THEN
-        OUTPUT "Invalid input"
-    ELSE
-        factorial = 1
-        FOR i = 1 TO n
-            factorial = factorial * i
-        ENDFOR
-        OUTPUT "Factorial is: "
-        OUTPUT factorial
-    ENDIF
+    DECLARE inputs[5]
+    inputs[0] = 0
+    inputs[1] = 1
+    inputs[2] = 5
+    inputs[3] = 7
+    inputs[4] = 10
+
+    FOR i = 0 TO 4
+        n = inputs[i]
+        IF n < 0 THEN
+            OUTPUT "Invalid input"
+        ELSE
+            factorial = 1
+            FOR j = 1 TO n
+                factorial = factorial * j
+            ENDFOR
+            PRINT "Factorial of "
+            PRINT n
+            PRINT " is: "
+            OUTPUT factorial
+        ENDIF
+    ENDFOR
 END
