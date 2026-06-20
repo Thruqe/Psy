@@ -1,0 +1,54 @@
+name: Psy Example Tests
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Cache Cargo registry and build
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Build release
+      run: cargo build --release
+
+    - name: Run Psy example tests
+      id: run_tests
+      run: |
+        chmod +x scripts/run_tests.bash
+        ./scripts/run_tests.bash | tee /tmp/test_output.txt
+        exit ${PIPESTATUS[0]}
+
+    - name: Post test summary
+      if: always()
+      run: |
+        echo "## Psy Test Results" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        cat /tmp/test_output.txt >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+
+    - name: Upload test output on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-output
+        path: /tmp/test_output.txt
+        retention-days: 7
