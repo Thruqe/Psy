@@ -171,6 +171,20 @@ fn load_sibling_exports(entry_filename: &str) -> Result<Vec<psycore::interpreter
         let source = fs::read_to_string(&path)
             .map_err(|e| format!("Error reading {}: {}", path.display(), e))?;
 
+        // Parse first to check for PUB exports — skip syntax check
+        // entirely for files that aren't modules.
+        let mut lexer = Lexer::new(source.clone());
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let (ast, _parse_errors) = parser.parse();
+
+        // Skip files with no PUB declarations — they are standalone
+        // scripts and should never be executed as side-effect modules.
+        if !has_pub_exports(&ast) {
+            continue;
+        }
+
+        // Only syntax-check files that actually export something.
         let diagnostics = syntax::check(&source);
         let has_errors = diagnostics
             .iter()
@@ -192,19 +206,6 @@ fn load_sibling_exports(entry_filename: &str) -> Result<Vec<psycore::interpreter
             return Err(msg);
         }
 
-        let mut lexer = Lexer::new(source);
-        let tokens = lexer.tokenize();
-        let mut parser = Parser::new(tokens);
-        let (ast, _parse_errors) = parser.parse();
-
-        // Skip files with no PUB declarations — they are standalone
-        // scripts and should never be executed as side-effect modules.
-        if !has_pub_exports(&ast) {
-            continue;
-        }
-
-        // This file has PUB exports — run it to materialise CONST values,
-        // then harvest the exports.
         let mut sibling_interpreter = Interpreter::new();
         sibling_interpreter
             .run_exports_only(&ast)

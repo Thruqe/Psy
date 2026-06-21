@@ -13,12 +13,11 @@ START
         ELSE
             factorial = 1
             FOR j = 1 TO n
-                factorial = factorial * j
+                factorial = factorial*j
             ENDFOR
-            PRINT "Factorial of "
-            PRINT n
-            PRINT " is: "
-            OUTPUT factorial
+            OUTPUT "Factorial of: " + n
+            OUTPUT " is: " + factorial
         ENDIF
     ENDFOR
 END
+

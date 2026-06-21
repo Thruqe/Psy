@@ -156,6 +156,7 @@ impl Lexer {
                     "END" => Token::End,
                     "INPUT" => Token::Input,
                     "OUTPUT" => Token::Output,
+                    "PRINT" => Token::Print,
                     "IF" => Token::If,
                     "THEN" => Token::Then,
                     "ELSE" => Token::Else,
