@@ -1,4 +1,4 @@
-use types::Value;
+use helper::Value;
 
 pub fn tan(args: &[Value]) -> Result<Value, String> {
     let n = super::expect_one_number(args, "TAN")?;

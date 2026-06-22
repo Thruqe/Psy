@@ -1,4 +1,4 @@
-use types::Value;
+use helper::Value;
 
 pub fn cos(args: &[Value]) -> Result<Value, String> {
     let n = super::expect_one_number(args, "COS")?;

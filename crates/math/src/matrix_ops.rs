@@ -1,5 +1,5 @@
 use super::matrix::{Matrix, extract_extra_dims, resolve_matrix};
-use types::Value;
+use helper::Value;
 
 pub fn matrix_add(args: &[Value]) -> Result<Value, String> {
     if args.len() < 2 {

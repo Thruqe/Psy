@@ -1,6 +1,6 @@
-use types::Value;
+use helper::Value;
 
-/// Convert a `serde_json::Value` into a `types::Value`.
+/// Convert a `serde_json::Value` into a `helper::Value`.
 /// JSON objects become `Value::Array` of `Value::String("key: <json>")` to
 /// stay compatible with the rest of the interpreter, OR you can change this
 /// to a future `Value::Object` variant when you add one.
@@ -20,7 +20,7 @@ pub fn from_serde(v: serde_json::Value) -> Value {
     }
 }
 
-/// Convert a `types::Value` into a `serde_json::Value`.
+/// Convert a `helper::Value` into a `serde_json::Value`.
 /// Strings that look like JSON are re-parsed so objects survive a round-trip.
 pub fn to_serde(v: &Value) -> serde_json::Value {
     match v {

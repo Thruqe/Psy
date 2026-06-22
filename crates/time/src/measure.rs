@@ -1,4 +1,4 @@
-use types::Value;
+use helper::Value;
 use std::time::Instant;
 
 // Note: For a simple implementation, we'll use a basic timer

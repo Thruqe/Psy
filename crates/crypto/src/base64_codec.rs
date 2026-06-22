@@ -1,5 +1,5 @@
 use base64::Engine;
-use types::Value;
+use helper::Value;
 
 pub fn base64_encode(args: &[Value]) -> Result<Value, String> {
     if args.len() != 1 {

@@ -1,4 +1,4 @@
-use types::Value;
+use helper::Value;
 
 pub fn gcd(args: &[Value]) -> Result<Value, String> {
     if args.len() != 2 {

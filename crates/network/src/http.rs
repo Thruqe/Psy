@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use types::Value;
+use helper::Value;
 
 fn blocking_client() -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()

@@ -53,7 +53,7 @@ pub fn registry() -> Arc<Mutex<AsyncRegistry>> {
 /// Returns the task ID.
 pub fn spawn_task<F>(future: F) -> String
 where
-    F: std::future::Future<Output = Result<types::Value, String>> + Send + 'static,
+    F: std::future::Future<Output = Result<helper::Value, String>> + Send + 'static,
 {
     let rt = tokio_rt();
     let reg = registry();

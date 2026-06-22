@@ -1,6 +1,6 @@
 use std::thread;
 use std::time::Duration;
-use types::Value;
+use helper::Value;
 
 pub fn sleep(args: &[Value]) -> Result<Value, String> {
     if args.len() != 1 {

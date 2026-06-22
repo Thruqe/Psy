@@ -479,7 +479,7 @@ To add new functions to the fs module:
 Example function structure:
 ```rust
 // crates/fs/src/copy_file.rs
-use types::Value;
+use helper::Value;
 use std::fs;
 
 pub fn copy_file(args: &[Value]) -> Result<Value, String> {

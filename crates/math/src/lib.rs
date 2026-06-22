@@ -56,7 +56,7 @@ pub use trig_extra::{acos, asin, atan};
 pub use variance::variance;
 pub use vector_ops::{cross, dot};
 
-use types::Value;
+use helper::Value;
 
 pub(crate) fn expect_number(value: &Value, fn_name: &str) -> Result<f64, String> {
     match value {

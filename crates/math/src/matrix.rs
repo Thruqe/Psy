@@ -1,4 +1,4 @@
-use types::Value;
+use helper::Value;
 
 /// A resolved matrix: row-major flat data plus its dimensions.
 pub(crate) struct Matrix {

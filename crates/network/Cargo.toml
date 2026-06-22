@@ -13,5 +13,5 @@ tokio = { version = "1.52.3", features = ["full"] }
 tokio-tungstenite = {version="0.29.0",features = ["native-tls"]}
 tower = "0.5.3"
 tower-http = {version="0.7.0",  features = ["cors"] }
-types = { path = "../../structs/" }
+helper = { path = "../../helper/" }
 uuid = {version="1.23.3", features = ["v4"] }

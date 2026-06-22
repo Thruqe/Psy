@@ -1,5 +1,5 @@
 use super::http;
-use types::Value;
+use helper::Value;
 
 pub fn fetch_url(args: &[Value]) -> Result<Value, String> {
     if args.is_empty() {

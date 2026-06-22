@@ -1,6 +1,6 @@
 mod bridge;
 
-use types::Value;
+use helper::Value;
 
 pub fn json_parse(args: &[Value]) -> Result<Value, String> {
     let json_str = match args.first() {

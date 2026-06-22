@@ -1,4 +1,4 @@
-use types::Value;
+use helper::Value;
 
 fn extract_vector(value: &Value, fn_name: &str) -> Result<Vec<f64>, String> {
     match value {

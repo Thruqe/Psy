@@ -6,7 +6,7 @@ use tokio::sync::Mutex;
 use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream, connect_async, tungstenite::protocol::Message,
 };
-use types::Value;
+use helper::Value;
 use uuid::Uuid;
 
 type WsSink = futures_util::stream::SplitSink<

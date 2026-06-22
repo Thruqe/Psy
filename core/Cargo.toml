@@ -7,7 +7,7 @@ edition = "2024"
 path = "src/lib.rs"
 
 [dependencies]
-types = { path = "../structs/" }
+helper = { path = "../helper/" }
 math = { path = "../crates/math" }
 fs = { path = "../crates/fs" }
 time = { path = "../crates/time" }

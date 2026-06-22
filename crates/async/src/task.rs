@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
-use types::Value;
+use helper::Value;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TaskStatus {

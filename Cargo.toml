@@ -5,7 +5,7 @@ members = [
     "cli",
     "syntax",
     "lsp",
-    "structs",
+    "helper",
     "crates/math",
     "crates/fs",
     "crates/time",
