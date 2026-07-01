@@ -22,12 +22,14 @@
 ## Features
 
 ### Core Interpreter Pipeline
+
 - **Lexer**: Scans source code and converts it into a stream of tokens
 - **Parser**: Builds an Abstract Syntax Tree (AST) from the token stream
 - **Evaluator**: Walks the AST and executes the program logic
 - **Error Reporting**: Syntax and runtime errors with line numbers and helpful messages
 
 ### Language Constructs
+
 - **Program Structure**: Programs are wrapped in `START` and `END` blocks
 - **Variables**: Can be declared with `DECLARE` or used directly with assignment (`=`)
 - **Constants**: Declared using `CONST` (value cannot be reassigned)
@@ -42,16 +44,19 @@
 - **Logical Operators**: Boolean logic (`AND`, `OR`, `NOT`)
 
 ### Debugging
+
 - Built-in debug mode enabled with `--debug` flag
 - Step-by-step execution tracing
 - Variable state inspection during runtime
 
 ### Educational Focus
+
 - Designed specifically for teaching fundamental programming concepts
 - Syntax mirrors common pseudocode conventions used in textbooks
 - Clear, beginner-friendly error messages to aid learning
 
 ### Modular Architecture
+
 - **Core System**: The main interpreter engine
 - **Syntax syntax**: Validates code structure before execution
 - **Language Server**: Provides IDE integration (autocomplete, diagnostics)
